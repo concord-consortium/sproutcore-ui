@@ -34,6 +34,12 @@ LinkIt = SC.Object.create({
   STRAIGHT: 'straight',
   PIPES: 'pipes',
   
+  // Line Arrows
+  ARROW_END: 'end',
+  ARROW_BOTH: 'both',
+  ARROW_START: 'start',
+  ARROW_NONE: 'none',
+  
   /**
     See log() method below.  For development purposes, many methods in LinkIt
     log messages to LinkIt.log() instead of console.log() to give us a central place
