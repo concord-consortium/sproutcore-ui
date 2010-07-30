@@ -491,8 +491,15 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       }
 
       var linkStyle = startTerminal.get('linkStyle');
+      var oldValue = {};
       if (linkStyle) {
-        link.set('linkStyle', linkStyle);
+        oldValue = link.get('linkStyle') || {};
+        link.set('linkStyle', SC.supplement(linkStyle,oldValue));
+      }
+      var label = startTerminal.get('label');
+      if (label) {
+        oldValue = link.get('label') || {};
+        link.set('label', SC.supplement(label,oldValue));
       }
     }
     return startPt && endPt ? { startPt: startPt, endPt: endPt } : null;

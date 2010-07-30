@@ -34,7 +34,7 @@ LinkIt.Terminal = {
   
   /**
   */
-  displayProperties: ['dropState', 'isLinked', 'linkStyle', 'direction'],
+  displayProperties: ['dropState', 'isLinked', 'linkStyle', 'label', 'direction'],
   
   /**
     Will be set automatically
@@ -172,7 +172,8 @@ LinkIt.Terminal = {
           layout: {left: 0, top: 0, right: 0, bottom: 0},
           startPt: {x: startX, y: startY},
           endPt: {x: startX, y: startY},
-          linkStyle: this.get('linkStyle')
+          linkStyle: this.get('linkStyle'),
+          label: this.get('label')
         });
         layer.appendChild(dragLink);
       
