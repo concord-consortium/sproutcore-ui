@@ -93,6 +93,8 @@ LinkIt = SC.Object.create({
   /**
     Many LinkIt methods call here to log to the console so that we have a central
     place for turning console logging on/off.  For debugging purposes.
+    maybe use: http://wiki.sproutcore.com/Runtime-Logging eg
+    SC.Logger.log("Some information about my app's state");
   */
   log: function(message) {
     if (this.logToConsole) {
