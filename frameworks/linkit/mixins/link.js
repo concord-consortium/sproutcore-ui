@@ -24,6 +24,20 @@ LinkIt.Link = {
     lineStyle: LinkIt.VERTICAL_CURVED
   },
   
+  /**
+    Default labeling
+  */
+  label: {
+    text: "something interesting",
+    //text: "",
+    fontSize: 16,
+    fontFamily: 'sans-serif',
+    fontStyle: 'normal',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: 4
+  },
+  
+  
   selectionColor: '#FFFF64',
   selectionWidth: 7,
   
@@ -107,6 +121,7 @@ LinkIt.Link = {
       context.lineTo(endPt.x, endPt.y);
       context.closePath();
       context.stroke();
+      this.drawLabel(context,(startPt.x + endPt.x)/2,(startPt.y + endPt.y)/2);
     }
   },
   
@@ -170,6 +185,7 @@ LinkIt.Link = {
       context.quadraticCurveTo(curve1X,curve1Y,midX,midY);
       context.quadraticCurveTo(curve2X,curve2Y,endPt.x,endPt.y);
       context.stroke();
+      this.drawLabel(context,midX,midY);
     }
   },
   
@@ -233,9 +249,43 @@ LinkIt.Link = {
       context.quadraticCurveTo(curve1X,curve1Y,midX,midY);
       context.quadraticCurveTo(curve2X,curve2Y,endPt.x,endPt.y);
       context.stroke();
+      this.drawLabel(context,midX,midY);
     }
   },
+  
 
+  // optionally draw a line label
+  drawLabel: function (context,midX,midY) {
+    if (this.label && this.label.text.length > 0) {
+      var labelSettings = this.get('label') || {};
+      var text = labelSettings.text || "";
+      var fontSize = labelSettings.fontSize || 12;
+      var fontFamily = labelSettings.fontFamily || 'sans-serif';
+      var fontStyle = labelSettings.fontStyle || 'normal';
+      var labelBGColor = labelSettings.backgroundColor || "#FF0000";
+      var padding = labelSettings.padding || 4;
+
+      context.save();
+      // same color as the lines:
+      var labelColor =  context.strokeStyle;
+
+      // TODO: compute and cache instead of computing each time?
+      context.font = fontStyle + " " + fontSize + "px/2 " + fontFamily;
+      var tWidth  = context.measureText(text).width + padding;
+
+      // draw label background box:
+      context.fillStyle = labelBGColor;
+      context.fillRect( midX - (tWidth/2 + padding/2), midY - (fontSize + padding/2), tWidth + padding, (fontSize + padding));
+
+      // draw label:
+      context.fillStyle = labelColor;
+      context.textAlign='center';
+      context.fillText(text, midX, midY);
+
+      context.restore();
+    }
+  },
+  
   distanceSquaredFromLine: function(pt) {
     var startPt = this.get('startPt');
     var endPt = this.get('endPt');
