@@ -1,3 +1,4 @@
+/*global LinkIt */
 /** @class
 
   This is the canvas tag that draws the line on the screen
