@@ -1,7 +1,7 @@
 // ==========================================================================
 // LinkIt.Node 
 // ==========================================================================
-
+/*global LinkIt */
 /** @class
 
   This is a Mixin that lives on the Model Object that are going to
