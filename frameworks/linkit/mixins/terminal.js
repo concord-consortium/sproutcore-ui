@@ -335,7 +335,6 @@ LinkIt.Terminal = {
     if (endNode && startTerm) {
       startNode = startTerm.get('node');
       if (startNode) {
-        debugger;
         var links = this._getLinkObjects(startTerm, startNode, this, endNode);
         if (links[0]) startNode.createLink( links[0] ) ;
         if (links[1]) endNode.createLink( links[1] );
