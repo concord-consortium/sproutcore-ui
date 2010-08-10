@@ -1,3 +1,5 @@
+/*global LinkIt */
+
 LinkIt.Terminal = {
   
   // PUBLIC PROPERTIES
@@ -35,6 +37,12 @@ LinkIt.Terminal = {
   /**
   */
   displayProperties: ['dropState', 'isLinked', 'linkStyle', 'label', 'direction'],
+  
+  /**
+  * support rich model links
+  * linkClass: LinkIt.Link
+  */
+  linkClass: null, // will default to LinkIt.Link
   
   /**
     Will be set automatically
@@ -327,6 +335,7 @@ LinkIt.Terminal = {
     if (endNode && startTerm) {
       startNode = startTerm.get('node');
       if (startNode) {
+        debugger;
         var links = this._getLinkObjects(startTerm, startNode, this, endNode);
         if (links[0]) startNode.createLink( links[0] ) ;
         if (links[1]) endNode.createLink( links[1] );
@@ -334,6 +343,17 @@ LinkIt.Terminal = {
     }
     return op;
   },
+  
+  // We can return any custom object that mixin Link
+  // 
+  // blessLink: function(objHash) {
+  //   if (this.linkClass) {
+  //     SC.Logger.log("returning a custom link type %@".fmt(this.linkClass));
+  //     return SC.Object.create(this.linkClass, objHash);
+  //   }
+  //   SC.Logger.log("returning a default link (LinkIt.Link)");
+  //   return SC.Object.create( LinkIt.Link, objHash);
+  // },
   
   // PRIVATE METHODS
   _getLinkObjects: function(startTerminal, startNode, endTerminal, endNode){
@@ -393,6 +413,7 @@ LinkIt.Terminal = {
         tempHash.endTerminalView = endTerminal;
         //console.log('\nUni(%@,%@): (%@).%@ => (%@).%@'.fmt(sDir, eDir, SC.guidFor(startNode), tempHash.startTerminal, SC.guidFor(endNode), tempHash.endTerminal));
         startObj = SC.Object.create( LinkIt.Link, tempHash );
+        // startObj = this.blessLink(tempHash);
         return [startObj, startObj];
       } 
       else if ( (sDir === LinkIt.INPUT_TERMINAL && (eDir === LinkIt.OUTPUT_TERMINAL || SC.none(eDir)) ) || (eDir === LinkIt.OUTPUT_TERMINAL && SC.none(sDir)) ) {
@@ -405,6 +426,7 @@ LinkIt.Terminal = {
         tempHash.endTerminalView = startTerminal;
         //console.log('\nUni(%@,%@): (%@).%@ => (%@).%@'.fmt(sDir, eDir, SC.guidFor(endNode), tempHash.startTerminal, SC.guidFor(startNode), tempHash.endTerminal));
         startObj = SC.Object.create( LinkIt.Link, tempHash );
+        // startObj = this.blessLink(tempHash);
         return [startObj, startObj];
       }
       else { // Bi Directional
@@ -417,17 +439,19 @@ LinkIt.Terminal = {
         tempHash.endTerminalView = endTerminal;
         startObj = SC.Object.create( LinkIt.Link, tempHash );
         //console.log('\nBi(%@): (%@).%@ => (%@).%@'.fmt(sDir, SC.guidFor(startNode), tempHash.startTerminal, SC.guidFor(endNode), tempHash.endTerminal));
+        // startObj = this.blessLink(tempHash);
         
-        tempHash.direction = eDir;
-        tempHash.startNode = endNode;
-        tempHash.startTerminal = endTerminal.get('terminal');
-        tempHash.startTerminalView = endTerminal;
-        tempHash.endNode = startNode;
-        tempHash.endTerminal = startTerminal.get('terminal');
-        tempHash.endTerminalView = startTerminal;
-        endObj = SC.Object.create( LinkIt.Link, tempHash );
+        // tempHash.direction = eDir;
+        // tempHash.startNode = endNode;
+        // tempHash.startTerminal = endTerminal.get('terminal');
+        // tempHash.startTerminalView = endTerminal;
+        // tempHash.endNode = startNode;
+        // tempHash.endTerminal = startTerminal.get('terminal');
+        // tempHash.endTerminalView = startTerminal;
         //console.log('Bi(%@): (%@).%@ => (%@).%@'.fmt(eDir, SC.guidFor(endNode), tempHash.startTerminal, SC.guidFor(startNode), tempHash.endTerminal));
-        return [startObj, endObj];
+        //endObj = SC.Object.create( LinkIt.Link, tempHash );
+        // endObj = this.blessLink(tempHash);
+        return [startObj, startObj];
       }
     }
   },

@@ -11,7 +11,7 @@
 LinkIt.Link = {
 
   // PUBLIC PROPERTIES
-  
+  isLink: YES,
   isSelected: NO,
 
   /**
@@ -30,7 +30,7 @@ LinkIt.Link = {
   label: {
     text: "something interesting",
     //text: "",
-    fontSize: 16,
+    fontSize: 12,
     fontFamily: 'sans-serif',
     fontStyle: 'normal',
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
@@ -69,7 +69,11 @@ LinkIt.Link = {
   endPt: null,
 
   // PUBLIC METHODS
-
+  initMixin: function() {
+    // LinkIt.log('%@.initMixin()'.fmt(this));
+    // this.isLinked = NO;
+  },
+  
   drawLink: function(context){
     var linkStyle = this.get('linkStyle') || {};
     var lineStyle = (linkStyle ? linkStyle.lineStyle : LinkIt.STRAIGHT) || LinkIt.STRAIGHT;
@@ -256,7 +260,10 @@ LinkIt.Link = {
 
   // optionally draw a line label
   drawLabel: function (context,midX,midY) {
-    if (this.label && this.label.text.length > 0) {
+    if (this.label && 
+        this.label.text && 
+        this.label.text.length &&
+        this.label.text.length > 0) {
       var labelSettings = this.get('label') || {};
       var text = labelSettings.text || "";
       var fontSize = labelSettings.fontSize || 12;
