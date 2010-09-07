@@ -21,7 +21,10 @@ LinkIt.Link = {
     cap: LinkIt.ROUND,
     width: 3, // Default: 3 pixels
     color: '#ADD8E6',
-    lineStyle: LinkIt.VERTICAL_CURVED
+    lineStyle: LinkIt.VERTICAL_CURVED,
+    arrows: LinkIt.ARROW_END,
+    arrowAngle: 40,
+    arrowLength: 5
   },
   
   /**
@@ -125,6 +128,7 @@ LinkIt.Link = {
       context.lineTo(endPt.x, endPt.y);
       context.closePath();
       context.stroke();
+      this.drawArrows(context);
       this.drawLabel(context,(startPt.x + endPt.x)/2,(startPt.y + endPt.y)/2);
     }
   },
@@ -189,6 +193,7 @@ LinkIt.Link = {
       context.quadraticCurveTo(curve1X,curve1Y,midX,midY);
       context.quadraticCurveTo(curve2X,curve2Y,endPt.x,endPt.y);
       context.stroke();
+      this.drawArrows(context);
       this.drawLabel(context,midX,midY);
     }
   },
@@ -253,6 +258,7 @@ LinkIt.Link = {
       context.quadraticCurveTo(curve1X,curve1Y,midX,midY);
       context.quadraticCurveTo(curve2X,curve2Y,endPt.x,endPt.y);
       context.stroke();
+      this.drawArrows(context);
       this.drawLabel(context,midX,midY);
     }
   },
@@ -293,6 +299,81 @@ LinkIt.Link = {
     }
   },
   
+  // optionally draw line arrows
+  drawArrows: function (context) {
+    if (this.get('linkStyle') &&
+        this.get('linkStyle') != LinkIt.ARROW_NONE) {
+      if (this.get('linkStyle').arrows == LinkIt.ARROW_END ||
+          this.get('linkStyle').arrows == LinkIt.ARROW_BOTH) {
+        // Draw end arrow
+        this.drawArrow(context, "end");
+      }
+      if (this.get('linkStyle').arrows == LinkIt.ARROW_START ||
+          this.get('linkStyle').arrows == LinkIt.ARROW_BOTH) {
+        // Draw start arrow
+        this.drawArrow(context, "start");
+      }
+    }
+  },
+
+  // Actually draw the arrow
+  drawArrow: function (context, lineEnd) {
+
+    // Line start and end points
+    var startx, starty, endx, endy;
+    if (lineEnd == "end") {
+      startx = this.get('startPt').x;
+      starty = this.get('startPt').y;
+      endx = this.get('endPt').x;
+      endy = this.get('endPt').y;
+    } else if (lineEnd == "start") {
+      endx = this.get('startPt').x;
+      endy = this.get('startPt').y;
+      startx = this.get('endPt').x;
+      starty = this.get('endPt').y;
+    }
+
+    // How wide the arrowhead appears
+    var angle = this.get('linkStyle').arrowAngle || 40;
+
+    // Length of arrowhead "tails"
+    var len = this.get('linkStyle').arrowLength || 5;
+
+    // direction of arrow
+    var theta;
+    if (this.get('_endControlPt')) {
+      // Adjust for curved line
+      theta = Math.atan2((endy-this._endControlPt.y),(endx-this._endControlPt.x));
+    } else {
+      theta = Math.atan2((endy-starty),(endx-startx));
+    }
+
+    // X coordinate of arrow tip
+    var tipX = endx + len * Math.cos(theta);
+    // Y coordinate of arrow tip
+    var tipY = endy + len * Math.sin(theta);
+
+    // Angles to "tail" tips
+    var baseAngleA = theta + angle * Math.PI/180;
+    var baseAngleB = theta - angle * Math.PI/180;
+
+    // Coordinates of "tail" tips
+    var baseAX = endx - len * Math.cos(baseAngleA);
+    var baseAY = endy - len * Math.sin(baseAngleA);
+    var baseBX = endx - len * Math.cos(baseAngleB);
+    var baseBY = endy - len * Math.sin(baseAngleB);
+
+    // Draw the arrow
+    context.save();
+    context.beginPath();
+    context.moveTo(tipX, tipY);
+    context.lineTo(baseAX, baseAY);
+    context.moveTo(tipX, tipY);
+    context.lineTo(baseBX, baseBY);
+    context.stroke();
+    context.restore();
+  },
+
   distanceSquaredFromLine: function(pt) {
     var startPt = this.get('startPt');
     var endPt = this.get('endPt');
