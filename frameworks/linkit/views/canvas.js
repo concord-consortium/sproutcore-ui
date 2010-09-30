@@ -62,9 +62,20 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   LINK_SELECTION_FREEDOM: 6,
   
   /**
-    Pointer to selected link object
+    Pointer to (most recently) selected link object
   */
   linkSelection: null,
+
+	/**
+		Allow multiple selection.  In the default mode (allowMultipleSelection off)
+		this behaves as before with the sole exception that selectedLinks will be 
+		an array with 0 or 1 elements.  If allowMultipleSelection is on things change.
+		The selectedLinks array will contain whatever links are selected; 
+		linkSelection will always be the last link selected, but multiple links will
+		have their isSelected on.
+	*/
+	allowMultipleSelection: NO,
+	selectedLinks: [],
   
   /**
   */
@@ -288,20 +299,26 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     Attempts to delete the link selection if present and possible
   */
   deleteLinkSelection: function() {
-    var link = this.get('linkSelection');
-    if (link) {
-      var startNode = link.get('startNode');
-      var endNode = link.get('endNode');
-      if (startNode && endNode) {
-        if (startNode.canDeleteLink(link) && endNode.canDeleteLink(link)) {
-          startNode.deleteLink(link);
-          endNode.deleteLink(link);
-          this.set('linkSelection', null);
-          this.displayDidChange();
-        }
-      }
+    var links = this.get('selectedLinks');
+    if (links) {
+			links.forEach(function(link) {
+		    if (link) {
+		      var startNode = link.get('startNode');
+		      var endNode = link.get('endNode');
+		      if (startNode && endNode) {
+		        if (startNode.canDeleteLink(link) && endNode.canDeleteLink(link)) {
+		          startNode.deleteLink(link);
+		          endNode.deleteLink(link);
+		        }
+		      }
+		    }
+			});
+      this.set('linkSelection', null);
+			this.set('selectedLinks', []);
+      this.displayDidChange();
     }
   },
+
 
   mouseDown: function(evt) {
     var pv, frame, globalFrame, canvasX, canvasY, itemView, menuPane, menuOptions;
@@ -313,10 +330,10 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     this._dragData = null;
 
     if (evt && (evt.which === 3) || (evt.ctrlKey && evt.which === 1)) {
-      linkSelection = this.get('linkSelection');
-      if (linkSelection && !this.getPath('selection.length')) {
+      var selectedLinks = this.get('selectedLinks');
+      if (selectedLinks && !this.getPath('selection.length')) {
         menuOptions = [
-          { title: "Delete Selected Link".loc(), target: this, action: 'deleteLinkSelection', isEnabled: YES }
+          { title: "Delete Selected Links".loc(), target: this, action: 'deleteLinkSelection', isEnabled: YES }
         ];
 
         menuPane = SCUI.ContextMenuPane.create({
@@ -334,12 +351,13 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       }
     }
     else {
+			var multiSelect = evt.metaKey && this.get('allowMultipleSelection');
       pv = this.get('parentView');
       frame = this.get('frame');
       globalFrame = pv ? pv.convertFrameToView(frame, null) : frame;
       canvasX = evt.pageX - globalFrame.x;
       canvasY = evt.pageY - globalFrame.y;
-      this._selectLink( {x: canvasX, y: canvasY} );
+      this._selectLink( {x: canvasX, y: canvasY}, multiSelect );
 
       itemView = this.itemViewForEvent(evt);
       if (itemView) {
@@ -395,6 +413,11 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     return ret;
   },
 
+	selectObjects: function(links) {
+		this.set('selectedLinks', links.slice());
+		this.linksDidChange();
+	},
+
   // PRIVATE METHODS
   
   _layoutForNodeView: function(nodeView, node) {
@@ -432,20 +455,26 @@ LinkIt.CanvasView = SC.CollectionView.extend({
          }
        }
 
+			 // Note that linkSelection ends up as the last selected link 
        var linkSelection = this.get('linkSelection');
+			 var selectedLinks = this.get('selectedLinks');
        this.set('linkSelection', null);
-       if (linkSelection) {
-         var selectedID = LinkIt.genLinkID(linkSelection);
-         len = links.get('length');
-         for (i = 0; i < len; i++) {
-           link = links.objectAt(i);
-           if (LinkIt.genLinkID(link) === selectedID) {
-             this.set('linkSelection', link);
-             link.set('isSelected', YES);
-             break;
-           }
-         }
-       }
+			 this.set('selectedLinks', []);
+			 for (j = 0; j < selectedLinks.length; j += 1 ) {
+				 linkSelection = selectedLinks.objectAt(j);
+       	 if (linkSelection) {
+         	var selectedID = LinkIt.genLinkID(linkSelection);
+         	len = links.get('length');
+         	for (i = 0; i < len; i++) {
+           	link = links.objectAt(i);
+           	if (LinkIt.genLinkID(link) === selectedID) {
+             	this.set('linkSelection', link);
+             	link.set('isSelected', YES);
+							this.get('selectedLinks').pushObject(link);
+           	}
+         	}
+       	}
+			 }
      }
      this.set('links', links);
   },
@@ -508,7 +537,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   /**
     pt = mouse click location { x: , y: } in canvas frame space
   */
-  _selectLink: function(pt) {
+  _selectLink: function(pt, append) {
     //console.log('%@._selectLink()'.fmt(this));
     var links = this.get('links') || [];
     var len = links.get('length');
@@ -518,24 +547,34 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     var maxDist = (this.LINE_SELECTION_FREEDOM * this.LINE_SELECTION_FREEDOM) || 25;
 
     this.set('linkSelection', null);
+		if (!append) this.set('selectedLinks', []);
     for (i = 0; i < len; i++) {
       link = links.objectAt(i);
       dist = link.distanceSquaredFromLine(pt);
       if ((SC.typeOf(dist) === SC.T_NUMBER) && (dist <= maxDist)) {
         link.set('isSelected', YES);
         this.set('linkSelection', link);
+				if (append) {
+					debugger;
+					this.get('selectedLinks').pushObject(link);
+					// this.set('selectedLinks', this.get('selectedLinks').slice().pushObject(link));
+				} else {
+					this.set('selectedLinks', [link]);
+				}
         break;
       }
       else {
-        link.set('isSelected', NO);
+				if (! append) link.set('isSelected', NO);
       }
     }
 
     // no more lines to select, just mark all the other lines as not selected
-    for (i = i + 1; i < len; i++) {
-      link = links.objectAt(i);
-      link.set('isSelected', NO);
-    }
+		if (!append) {
+    	for (i = i + 1; i < len; i++) {
+      	link = links.objectAt(i);
+      	link.set('isSelected', NO);
+    	}
+		}
 
     // trigger a redraw of the canvas
     this.displayDidChange();
