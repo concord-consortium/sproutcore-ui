@@ -542,7 +542,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     var links = this.get('links') || [];
     var len = links.get('length');
     var link, dist, i;
-		var newSelectedLinks;
+    var newSelectedLinks;
 
     // we compare distances squared to avoid costly square root calculations when finding distances
     var maxDist = (this.LINE_SELECTION_FREEDOM * this.LINE_SELECTION_FREEDOM) || 25;
@@ -554,23 +554,23 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       dist = link.distanceSquaredFromLine(pt);
       if ((SC.typeOf(dist) === SC.T_NUMBER) && (dist <= maxDist)) {
         if (append) {
-					if (this.get('selectedLinks').indexOf(link) == -1) {  // not already selected
-		        link.set('isSelected', YES);
-		        this.set('linkSelection', link);
-          	// this.get('selectedLinks').pushObject(link); <-- this doesn't seem to trigger property observers
-						newSelectedLinks = this.get('selectedLinks').slice();
-						newSelectedLinks.pushObject(link);
-					  this.set('selectedLinks', newSelectedLinks);
-					} else { // it's already there, remove it
- 	        	link.set('isSelected', NO);
-	        	this.set('linkSelection', null);
-						newSelectedLinks = this.get('selectedLinks').slice();
-						newSelectedLinks.removeObject(link);
-						this.set('selectedLinks', newSelectedLinks);
-					}
+          if (this.get('selectedLinks').indexOf(link) == -1) {  // not already selected
+            link.set('isSelected', YES);
+            this.set('linkSelection', link);
+            // this.get('selectedLinks').pushObject(link); <-- this doesn't seem to trigger property observers
+            newSelectedLinks = this.get('selectedLinks').slice();
+            newSelectedLinks.pushObject(link);
+            this.set('selectedLinks', newSelectedLinks);
+          } else { // it's already there, remove it
+            link.set('isSelected', NO);
+            this.set('linkSelection', null);
+            newSelectedLinks = this.get('selectedLinks').slice();
+            newSelectedLinks.removeObject(link);
+            this.set('selectedLinks', newSelectedLinks);
+          }
         } else {
-	        link.set('isSelected', YES);
-	        this.set('linkSelection', link);
+          link.set('isSelected', YES);
+          this.set('linkSelection', link);
           this.set('selectedLinks', [link]);
         }
         break;
