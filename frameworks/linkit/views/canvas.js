@@ -13,7 +13,6 @@
   @author Mohammed Taher
   @version 0.1
 */
-
 LinkIt.CanvasView = SC.CollectionView.extend({
 
   // PUBLIC PROPERTIES
@@ -67,12 +66,12 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   linkSelection: null,
 
   /**
-    Allow multiple selection.  In the default mode (allowMultipleSelection off)
-    this behaves as before with the sole exception that selectedLinks will be
-    an array with 0 or 1 elements.  If allowMultipleSelection is on things change.
-    The selectedLinks array will contain whatever links are selected;
-    linkSelection will always be the last link selected, but multiple links will
-    have their isSelected on.
+    Allow multiple selection of links. If allowMultipleSelection is NO (the default),
+    only one link may be selected at once (linkSelection) and selectedLinks will be
+    an array with 0 or 1 elements. If allowMultipleSelection is YES, the selectedLinks
+    array will contain whatever links are selected; linkSelection will always be the
+    last link selected, but multiple links will have their isSelected attribute set
+    to YES.
   */
   allowMultipleSelection: NO,
   selectedLinks: [],
@@ -442,41 +441,47 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     //console.log('%@._updateLinks()'.fmt(this));
     var links = [];
     var nodes = this.get('content');
-     if (nodes) {
-       var numNodes = nodes.get('length');
-       var node, i, j, nodeLinks, key, len, link;
-       var startNode, endNode;
-     
-       for (i = 0; i < numNodes; i++) {
-         node = nodes.objectAt(i);
-         if (node && (key = node.get('linksKey'))) {
-           nodeLinks = node.get(key) || [];
-           links = links.concat(nodeLinks);
-         }
-       }
-
-       // Note that linkSelection ends up as the last selected link
-       var linkSelection = this.get('linkSelection');
-       var selectedLinks = this.get('selectedLinks');
-       this.set('linkSelection', null);
-       this.set('selectedLinks', []);
-       for (j = 0; j < selectedLinks.length; j += 1 ) {
-         linkSelection = selectedLinks.objectAt(j);
-         if (linkSelection) {
-          var selectedID = LinkIt.genLinkID(linkSelection);
-          len = links.get('length');
-          for (i = 0; i < len; i++) {
-            link = links.objectAt(i);
-            if (LinkIt.genLinkID(link) === selectedID) {
-              this.set('linkSelection', link);
-              link.set('isSelected', YES);
-              this.get('selectedLinks').pushObject(link);
-            }
+    if (nodes) {
+      var nodeLinks, key;
+      // Get links from nodes
+      nodes.forEach( function (currentNode) {
+        if (currentNode && (key = currentNode.get('linksKey'))) {
+          nodeLinks = currentNode.get(key) || [];
+          links = links.concat(nodeLinks);
+        }
+      });
+      // de-duplicate links array
+      var tempArray = [];
+      o:for(var i=0; i<links.length; i++) {
+        for (var j=0; j<tempArray.length; j++) {
+          if(tempArray[j]==links[i]) {
+            continue o;
           }
         }
-       }
-     }
-     this.set('links', links);
+        tempArray[tempArray.length] = links[i];
+      }
+      links = tempArray;
+
+      // Note that linkSelection ends up as the last selected link
+      var linkSelection = this.get('linkSelection');
+      var selectedLinks = this.get('selectedLinks');
+      this.set('linkSelection', null);
+      this.set('selectedLinks', []); 
+      var thisCanvas = this; // we'll need to refer to this deeper in
+      selectedLinks.forEach( function (currentLink) {
+        linkSelection = currentLink;
+        var selectedID = LinkIt.genLinkID(linkSelection);
+        links.forEach( function (link) {
+          if ((LinkIt.genLinkID(link) === selectedID) && (thisCanvas.get('selectedLinks').indexOf(link) < 0)) {
+            // if this was previously selected and isn't already in the array, we need to reselect it
+            thisCanvas.set('linkSelection', link);
+            link.set('isSelected', YES);
+            thisCanvas.get('selectedLinks').pushObject(link);
+          }
+        });
+      });
+    }
+    this.set('links', links);
   },
 
   /**
