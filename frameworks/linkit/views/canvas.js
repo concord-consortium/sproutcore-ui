@@ -466,7 +466,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       var linkSelection = this.get('linkSelection');
       var selectedLinks = this.get('selectedLinks');
       this.set('linkSelection', null);
-      this.set('selectedLinks', []); 
+      this.set('selectedLinks', []);
       var thisCanvas = this; // we'll need to refer to this deeper in
       selectedLinks.forEach( function (currentLink) {
         linkSelection = currentLink;
