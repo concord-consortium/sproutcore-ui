@@ -1,5 +1,5 @@
 // ==========================================================================
-// Project:   SCUI.SelectFieldTab
+// Project:   SCUI.SelectFieldTab 
 // ==========================================================================
 /*globals SCUI */
 
@@ -71,6 +71,13 @@ SCUI.SelectFieldTab = SC.View.extend(
   init: function() {
     sc_super();
     this._tab_nowShowingDidChange()._tab_itemsDidChange();
+
+    // propagate classNames to the selectFieldView (e.g., 'dark')
+    var classNames = this.get('classNames'), sfClassNames = this.selectFieldView.get('classNames');
+    classNames = classNames.without('sc-view').without('scui-select-field-tab-view');
+    sfClassNames = sfClassNames.uniq();
+    sfClassNames.pushObjects(classNames);
+    this.selectFieldView.set('classNames', sfClassNames);
   },
 
   createChildViews: function() {
@@ -106,10 +113,11 @@ SCUI.SelectFieldTab = SC.View.extend(
     The selectFieldView managed by this tab view.  Note that this TabView uses
     a custom segmented view.  You can access this view but you cannot change
     it.
+    
+    --Updated this to a selectButton view to remove the select element. [jcd]
   */
-  selectFieldView: SC.SelectFieldView.extend({
+  selectFieldView: SC.SelectButtonView.extend({
     layout: { left: 4, right: 0, height: 24 },
-
     //litte items => objects alias so I can use the same properties as a tab view...
     items: function(key, value){
       if(value === undefined){
@@ -119,7 +127,7 @@ SCUI.SelectFieldTab = SC.View.extend(
         return this.set('objects', value);
       }
     }.property('objects').cacheable(),
-
+    
     itemTitleKey: function(key, value){
       if(value === undefined){
         return this.get('nameKey');

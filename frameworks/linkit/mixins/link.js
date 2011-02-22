@@ -1,10 +1,12 @@
-/*global LinkIt */
+/*globals LinkIt*/
+
 /** @class
 
   This is the canvas tag that draws the line on the screen
 
   @extends SC.View
   @author Evin Grano
+  @author Jonathan Lewis
   @version 0.1
 */
 
@@ -24,8 +26,22 @@ LinkIt.Link = {
     lineStyle: LinkIt.VERTICAL_CURVED,
     arrows: LinkIt.ARROW_END,
     arrowAngle: 40,
-    arrowLength: 5
+    arrowLength: 5,
+    directionIndicator: NO // may also be LinkIt.FORWARD or LinkIt.REVERSE (where forward means from 'startNode' to 'endNode')
   },
+
+  /**
+    Whether or not we should draw a direction indicator arrowhead at the midpoint of the
+    line indicating flow from 'startNode' to 'endNode'.  This setting will be overridden by
+    the property of the same name in 'linkStyle' if 'linkStyle' hash is present.
+
+    NOTE: Due to lack of time, currently only supported by line styles LinkIt.VERTICAL_CURVED
+    and LinkIt.HORIZONTAL_CURVED.
+    
+    Possible values are
+      LinkIt.FORWARD, LinkIt.REVERSE, or NO for no indicator.
+  */
+  directionIndicator: NO,
   
   /**
     Default labeling
@@ -43,7 +59,7 @@ LinkIt.Link = {
   
   selectionColor: '#FFFF64',
   selectionWidth: 7,
-  
+    
   // Graph-Related Properties
 
   /**
@@ -72,11 +88,16 @@ LinkIt.Link = {
   endPt: null,
 
   // PUBLIC METHODS
-  initMixin: function() {
-    // LinkIt.log('%@.initMixin()'.fmt(this));
-    // this.isLinked = NO;
+
+  /*
+    Returns YES if both start and end nodes are present and allow removal of the connection.
+  */
+  canDelete: function() {
+    var startNode = this.get('startNode');
+    var endNode = this.get('endNode');
+    return !!(startNode && endNode && startNode.canDeleteLink(this) && endNode.canDeleteLink(this));
   },
-  
+
   drawLink: function(context){
     var linkStyle = this.get('linkStyle') || {};
     var lineStyle = (linkStyle ? linkStyle.lineStyle : LinkIt.STRAIGHT) || LinkIt.STRAIGHT;
@@ -193,6 +214,15 @@ LinkIt.Link = {
       context.quadraticCurveTo(curve1X,curve1Y,midX,midY);
       context.quadraticCurveTo(curve2X,curve2Y,endPt.x,endPt.y);
       context.stroke();
+
+      var directionIndicator = this.get('directionIndicator');
+      if (directionIndicator === LinkIt.FORWARD) {
+        this.drawDirectionIndicator(context, midX, midY, curve1X - midX, curve1Y - midY);
+      }
+      else if (directionIndicator === LinkIt.REVERSE) {
+        this.drawDirectionIndicator(context, midX, midY, midX - curve1X, midY - curve1Y);
+      }
+
       this.drawArrows(context);
       this.drawLabel(context,midX,midY);
     }
@@ -217,7 +247,7 @@ LinkIt.Link = {
       var yLen = Math.pow(vectY, 2);
       var lineLen = Math.sqrt(xLen+yLen);
     
-      // Finded the loop scaler
+      // Find the loop scaler
       var xDiff = Math.abs(startPt.x - endPt.x);
       var yDiff = Math.abs(startPt.y - endPt.y);
       var scaler = 0, diff;
@@ -252,17 +282,26 @@ LinkIt.Link = {
       var curve2X = q2X-vectMidX;
       var curve2Y = q2Y-vectMidY;
       this._endControlPt = { x: curve2X, y: curve2Y };
-    
+ 
       context.beginPath();
       context.moveTo(startPt.x, startPt.y);
-      context.quadraticCurveTo(curve1X,curve1Y,midX,midY);
-      context.quadraticCurveTo(curve2X,curve2Y,endPt.x,endPt.y);
+      context.quadraticCurveTo(curve1X, curve1Y, midX, midY);
+      context.quadraticCurveTo(curve2X, curve2Y, endPt.x, endPt.y);
       context.stroke();
+
+      var directionIndicator = this.get('directionIndicator');
+      if (directionIndicator === LinkIt.FORWARD) {
+        this.drawDirectionIndicator(context, midX, midY, curve1X - midX, curve1Y - midY);
+      }
+      else if (directionIndicator === LinkIt.REVERSE) {
+        this.drawDirectionIndicator(context, midX, midY, midX - curve1X, midY - curve1Y);
+      }
+
       this.drawArrows(context);
       this.drawLabel(context,midX,midY);
+
     }
   },
-  
 
   // optionally draw a line label
   drawLabel: function (context,midX,midY) {
@@ -372,6 +411,27 @@ LinkIt.Link = {
     context.lineTo(baseBX, baseBY);
     context.stroke();
     context.restore();
+  },
+
+
+  /**
+    (centerX, centerY): location of center point of the arrowhead.
+    (directionX, directionY): vector describing the direction in which the arrow should point.
+  */
+  drawDirectionIndicator: function(context, centerX, centerY, directionX, directionY) {
+    context.save();
+    
+    context.translate(centerX, centerY); // artificially move canvas origin to center of the arrowhead
+    context.rotate(Math.atan2(directionY, directionX) - Math.atan2(1, 0));
+    context.scale(2.5, 2.5);
+
+    context.beginPath();
+    context.moveTo(0, -3);
+    context.lineTo(2, 3);
+    context.lineTo(-2, 3);
+    context.lineTo(0, -3);
+    context.fill();
+
   },
 
   distanceSquaredFromLine: function(pt) {
@@ -513,6 +573,8 @@ LinkIt.Link = {
   },
 
   _initLineProperties: function(context, linkStyle){
+    this.set('directionIndicator', linkStyle ? linkStyle.directionIndicator : this.get('directionIndicator'));
+
     if (context) {
       var cap = linkStyle ? (linkStyle.cap || LinkIt.ROUND) : LinkIt.ROUND;
       var color = linkStyle ? (linkStyle.color || '#ADD8E6') : '#ADD8E6';
@@ -520,6 +582,7 @@ LinkIt.Link = {
 
       context.lineCap = cap;
       context.strokeStyle = color;
+      context.fillStyle = color;
       context.lineWidth = width;
     }
     return context;

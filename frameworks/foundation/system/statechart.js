@@ -52,9 +52,11 @@ SCUI.Statechart = {
   
   startOnInit: YES,
   
+  statechartIsStarted: NO,
+  
   startupStatechart: function(){
     //add all unregistered states
-    if(!this._started){
+    if (!this.get('statechartIsStarted')) {
       var key, tree, state, trees, startStates, startState, currTree;
       for(key in this){
         if(this.hasOwnProperty(key) && SC.kindOf(this[key], SCUI.State) && this[key].get && !this[key].get('beenAddedToStatechart')){
@@ -90,7 +92,7 @@ SCUI.Statechart = {
         }
       }
     }
-    this._started = YES;
+    this.setIfChanged('statechartIsStarted', YES);
   },
   
   
@@ -356,6 +358,8 @@ SCUI.Statechart = {
         handled = NO;
         
         responder = currentStates[tree];
+        
+        if (!responder.get) continue;
        
         while(!handled && responder){
           if(responder.tryToPerform){
@@ -395,10 +399,13 @@ SCUI.Statechart = {
     var pending = this._pendingActions.shift();
 
     if (!pending) return;
-
+    
     // Logging
     if (this.get('logLevel') & SCUI.Statechart.LOG_SENT_EVENTS) {
       console.info('%@: firing pending action %@'.fmt(this, pending.action));
+    }
+    else{
+      this.toString(); //HACK: [MB] prevents crashes for now...
     }
 
     this.sendEvent(pending.action, pending.sender, pending.context);

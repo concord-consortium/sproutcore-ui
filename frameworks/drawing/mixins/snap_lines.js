@@ -120,14 +120,20 @@ SCUI.SnapLines = {
     in local and global coodinates
     
   */
-  drawLines: function(view, eventX, eventY, mouseDownX, mouseDownY){
+  drawLines: function(view, eventX, eventY, mouseDownX, mouseDownY, offset){
     if(!this._xPositions || !this._yPositions) return;
     if(!this._drawingView){
       this._drawingView = this.createChildView(SCUI.DrawingView.design({
-        shapes: []
+        shapes: [],
+        mouseDown: function(evt){
+          this.removeFromParent(); //sometimes the lines still stick around... if they do this gives you an out!
+          return YES;
+        }
       }));
       this.appendChild(this._drawingView);
     }
+    //set offset to 0 if not provided
+    if(!offset) offset = {x: 0, y: 0};
     var factor = (SCUI.SNAP_ZONE*2), shapes = [], xline, yline, frame, parent, rMinX, rMidX, rMaxX,
         rMinY, rMidY, rMaxY, rMinXMod, rMidXMod, rMaxXMod, rMinYMod, rMidYMod, rMaxYMod, xHit, yHit,
         moveDirection = this._dragDirection(eventX, eventY, mouseDownX, mouseDownY), xValues, yValues, 
@@ -135,6 +141,8 @@ SCUI.SnapLines = {
     //get the frame and all the relavent points of interest
     parent = view.get('parentView');
     frame = parent ? parent.convertFrameToView(view.get('frame'), null) : view.get('frame');
+    frame.x = frame.x - offset.x;
+    frame.y = frame.y - offset.y;
     rMinX = SC.minX(frame);
     rMidX = SC.midX(frame);
     rMaxX = SC.maxX(frame);
@@ -202,7 +210,7 @@ SCUI.SnapLines = {
     this._yPositions = null;
     this._globalFrame = null;
     if(this._drawingView) {
-      this.removeChild(this._drawingView);
+      this._drawingView.destroy();
       this._drawingView = null;
     }
   },

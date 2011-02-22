@@ -2,6 +2,8 @@
 // LinkIt
 // ==========================================================================
 
+/*globals LinkIt*/
+
 /** @class
 
   This is the grouping where all utility functions will live
@@ -10,9 +12,13 @@
   @author Evin Grano
   @version: 0.1
 */
-LinkIt = SC.Object.create({
+window.LinkIt = SC.Object.create({
+
   // CONST
   ROUND: 'round',
+  
+  FORWARD: 'forward',
+  REVERSE: 'reverse',
   
   // Drag Types
   OUTPUT_TERMINAL: 'LinkIt.TerminalOutput',

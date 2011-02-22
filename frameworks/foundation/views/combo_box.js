@@ -1,7 +1,6 @@
 /*globals SCUI*/
 
 sc_require('mixins/simple_button');
-sc_require('views/localizable_list_item');
 
 /** @class
 
@@ -25,46 +24,18 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     return this.get('isEnabled');
   }.property('isEnabled').cacheable(),
 
-  /**
-    An array of items that will form the menu you want to show.
-  */
-  objects: null,
-  
-  objectsBindingDefault: SC.Binding.oneWay(),
-  
-  /**
-    The value represented by this control.  If you have defined a 'valueKey',
-    this will be 'selectedObject[valueKey]', otherwise it will be
-    'selectedObject' itself.
+  /*
+    The item selected in the combo box.  Every time a different item is chosen in
+    the drop-down list, this property will be updated.
 
-    Setting 'value':
+    This property may be used in conjunction with 'valueKey', in which case this
+    property will be equal to 'selectedObject[valueKey]' when an item is selected
+    in the drop-down list.
     
-    When 'valueKey' is defined, setting 'value' will make the combo box
-    attempt to find an object in 'objects' where object[valueKey] === value.
-    If it can't find such an object, 'value' and 'selectedObject' will be forced
-    to null. In the case where both 'objects' and 'value' are both bound to something
-    and 'value' happens to update before 'objects' (so that for a small amount of time 'value' is
-    not found in 'object[valueKey]s') 'value' can be set wrongly to null.
-    'valueKey' is really meant for use in read-only situations.
-    
-    When 'valueKey' is not defined, setting 'value' to something not found in
-    'objects' is just fine -- 'selectedObject' will simply be set to 'value'.
-    
-    Setting this to null also forces 'selectedObject' to null.
-    
-    @property {Object}
+    If no 'valueKey' is set, then 'value' will be equal to the selected item 'selectedObject'
+    itself.
   */
   value: null,
-
-  /**
-    Provided because we have to keep track of this internally -- the
-    actual item from 'objects' that was selected, regardless of how we are
-    displaying it or what property on it is considered its 'value'.
-    
-    Usually you won't use this -- 'value' is the normal property for this
-    purpose.  However, this is also fully bindable, etc.
-  */
-  selectedObject: null,
 
   /**
      Set this to a non-null value to use a key from the passed set of objects
@@ -72,13 +43,27 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
      objects themselves will be used as the value.
   */
   valueKey: null,
+
+  /**
+    An array of items that will form the menu you want to show.
+  */
+  objects: null,
   
+  objectsBindingDefault: SC.Binding.oneWay(),
+
   /**
     If you set this to a non-null value, then the name shown for each 
     menu item will be pulled from the object using the named property.
     if this is null, the collection objects themselves will be used.
   */
   nameKey: null,
+
+  /*
+    @optional
+    If set to a number, will truncate the item display names in the drop-down
+    list to this length.  No truncation if null.
+  */
+  maxNameLength: null,
 
   /**
     If this is non-null, the drop down list will add an icon for each
@@ -99,6 +84,9 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   */  
   disableSort: NO,
   
+  /**
+    if true, the object list names will be localized.
+  */
   localize: NO,
   
   /**
@@ -142,18 +130,18 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   /**
     The drop down pane resizes automatically.  Set the minimum allowed height here.
   */
-  minListHeight: 20,
+  minListHeight: 18,
 
   /**
     The drop down pane resizes automatically.  Set the maximum allowed height here.
   */
-  maxListHeight: 200,
+  maxListHeight: 194, // 10 rows at 18px, plus 7px margin on top and bottom
 
   /**
     When 'isBusy' is true, the combo box shows a busy indicator at the bottom of the
     drop down pane.  Set its height here.
   */
-  statusIndicatorHeight: 18,
+  statusIndicatorHeight: 20,
 
   /**
     'objects' above, filtered by 'filter', then optionally sorted.
@@ -161,16 +149,17 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     pass 'objects' through unchanged.
   */
   filteredObjects: function() {
-    var ret, filter, objects, nameKey, name, that, shouldLocalize;
+    var ret, objects, nameKey, name, that, shouldLocalize;
+    var filter = this.get('filter');
 
-    if (this.get('useExternalFilter')) {
+    if (this.get('useExternalFilter') || !filter) {
       ret = this.get('objects');
     }
     else {
       objects = this.get('objects') || [];
       nameKey = this.get('nameKey');
 
-      filter = this._sanitizeFilter(this.get('filter')) || '';
+      filter = this._sanitizeFilter(filter) || '';
       filter = filter.toLowerCase();
 
       shouldLocalize = this.get('localize');
@@ -190,6 +179,57 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     return this.sortObjects(ret);
   }.property('objects', 'filter').cacheable(),
 
+  /*
+    The actual item from the 'objects' list that was selected, mainly for internal use,
+    though it is bindable if desired.
+    
+    If 'valueKey' is in use, then when 'value' is changed, this property will attempt
+    to update itself by searching the 'objects' list for an object P where P[valueKey]
+    equals 'value'.  Otherwise, this property just makes sure that 'selectedObject' and
+    'value' are always the same.
+    
+    Note that when using 'value' in conjunction with 'valueKey', 'selectedObject' will be null
+    if an appropriate object in 'objects' cannot be found.
+  */
+  selectedObject: function(key, value) {
+    var objects, comboBoxValue, valueKey;
+
+    if (value !== undefined) {
+      this.setIfChanged('value', this._getObjectValue(value, this.get('valueKey')));
+    }
+    else {
+      if (this.get('valueKey')) {
+        comboBoxValue = this.get('value');
+        valueKey = this.get('valueKey');
+        
+        if (this._getObjectValue(this._lastSelectedObject, valueKey) !== comboBoxValue) {
+          objects = this.get('objects');
+          if (objects && objects.isEnumerable) {
+            value = objects.findProperty(valueKey, comboBoxValue);
+          }
+        }
+        else {
+          value = this._lastSelectedObject;
+        }
+      }
+      else {
+        value = this.get('value');
+      }
+    }
+
+    this._lastSelectedObject = value;
+
+    return value;
+  }.property('value').cacheable(),
+
+  selectedObjectName: function() {
+    return this._getObjectName(this.get('selectedObject'), this.get('nameKey'), this.get('localize'));
+  }.property('selectedObject').cacheable(),
+
+  selectedObjectIcon: function() {
+    return this._getObjectIcon(this.get('selectedObject'), this.get('iconKey'));
+  }.property('selectedObject').cacheable(),
+
   /**
     The text field child view class.  Override this to change layout, CSS, etc.
   */
@@ -201,11 +241,39 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   /**
     The drop down button view class.  Override this to change layout, CSS, etc.
   */
-  dropDownButtonView: SC.View.extend( SCUI.SimpleButton, {
-    classNames: 'scui-combobox-dropdown-button-view',
-    layout: { top: 0, right: 0, height: 24, width: 28 }
+  dropDownButtonView: SC.ButtonView.extend({
+    layout: { top: 0, right: 0, height: 24, width: 28 },
+    icon: 'caret'
+  }),
+  
+  /*
+    Set at design time only.  Should be a view class specified at design time.
+    At run time, if used, it will be replaced with an instance of the type as a
+    convenience shortcut for testing purposes.  This property will not be used
+    unless you set 'iconKey' above, indicating that you want to show icons for
+    your list items and your selected item.
+  */
+  iconView: SC.ImageView.extend({
+    layout: { left: 7, top: 4, width: 16, height: 16 }
   }),
 
+  /*
+    @private
+  */
+  leftAccessoryView: function() {
+    var view = this.get('iconView');
+
+    if (SC.kindOf(view, SC.View)) {
+      view = view.create();
+    }
+    else {
+      view = null;
+    }
+    this.set('iconView', view);
+
+    return view;
+  }.property().cacheable(), // only run once, then cache
+  
   displayProperties: ['isEditing'],
 
   // PUBLIC METHODS
@@ -213,11 +281,17 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   init: function() {
     sc_super();
     this._createListPane();
-    this._valueDidChange();
-
     this.bind('status', SC.Binding.from('*objects.status', this).oneWay());
   },
   
+  willDestroyLayer: function() {
+    if (this._listPane) {
+      this._listPane.destroy();
+    }
+
+    sc_super();
+  },
+
   createChildViews: function() {
     var childViews = [], view;
     var isEnabled = this.get('isEnabled');
@@ -300,22 +374,26 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   sortObjects: function(objects) {
     var nameKey;
 
-    if (!this.get('disableSort') && objects && objects.sort){
-      nameKey = this.get('sortKey') || this.get('nameKey') ;
+    if (!this.get('disableSort') && objects) {
+      if (!objects.sort && objects.toArray) {
+        objects = objects.toArray();
+      }
+      if (objects.sort) {
+        nameKey = this.get('sortKey') || this.get('nameKey');
 
-      objects = objects.sort(function(a, b) {
-        if (nameKey) {
-          a = a.get ? a.get(nameKey) : a[nameKey];
-          b = b.get ? b.get(nameKey) : b[nameKey];
-        }
-        
-        a = (SC.typeOf(a) === SC.T_STRING) ? a.toLowerCase() : a;
-        b = (SC.typeOf(b) === SC.T_STRING) ? b.toLowerCase() : b;
+        objects = objects.sort(function(a, b) {
+          if (nameKey) {
+            a = a.get ? a.get(nameKey) : a[nameKey];
+            b = b.get ? b.get(nameKey) : b[nameKey];
+          }
 
-        return (a < b) ? -1 : ((a > b) ? 1 : 0);
-      });
+          a = (SC.typeOf(a) === SC.T_STRING) ? a.toLowerCase() : a;
+          b = (SC.typeOf(b) === SC.T_STRING) ? b.toLowerCase() : b;
+
+          return (a < b) ? -1 : ((a > b) ? 1 : 0);
+        });
+      }
     }
-    
     return objects;
   },
 
@@ -352,12 +430,19 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     var textField = this.get('textFieldView');
 
     if (this.get('isEditing')) {
-      // force it walk through its sequence one more time
-      // to make sure text field display is in sync with selected stuff
-      this._selectedObjectDidChange();
+      // sync text field value with name of selected object
+      this._selectedObjectNameDidChange();
 
       this.set('isEditing', NO);
-      this.hideList();
+      // in IE, as soon as you the user browses through the results in the picker pane by 
+      // clicking on the scroll bar or the scroll thumb, the textfield loses focus causing 
+      // commitEditing to be called and subsequently hideList which makes for a very annoying 
+      // experience. With this change, clicking outside the pane will hide it (same as original behavior), 
+      // however, if the user directly shifts focus to another text field, then the pane 
+      // won't be removed. This behavior is still buggy but less buggy than it was before.
+      if (!SC.browser.msie) {
+        this.hideList();
+      }
     }
 
     if (textField && textField.get('isEditing')) {
@@ -383,17 +468,9 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
 
       this._updateListPaneLayout();
       this._listPane.popup(this, SC.PICKER_MENU);
-
-      // HACK: [JL] (Or is it?)  Tell the list view that its visible area
-      // has changed when showing the list.  Otherwise if the list was previously
-      // dismissed with the scroll bar not all the way at the top of the list,
-      // the list items render with off-screen layouts -- out of sync with the
-      // scroll view for some reason.
-      this._listView.reload();
-      // END HACK
     }
   },
-  
+
   // Hide the drop down list if visible.
   hideList: function() {
     if (this._listPane && this._listPane.get('isPaneAttached')) {
@@ -431,13 +508,33 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     return NO;
   },
   
+  _checkDeletedAll: function(delBackward) {
+    var value = this.get('textFieldView').get('value'),
+        selection = this.get('textFieldView').get('selection'),
+        wouldDeleteLastChar = NO;
+    if (!value.length) {
+      wouldDeleteLastChar = YES;
+    } else if (value.length === selection.length()) {
+      wouldDeleteLastChar = YES;
+    } else if (value.length === 1 && selection.start === (delBackward ? 1 : 0)) {
+      wouldDeleteLastChar = YES;
+    }
+
+    if (wouldDeleteLastChar) {
+      this.set('selectedObject', null);
+      this.set('value', null);
+    }
+  },
+
   deleteBackward: function(evt) {
+    this._checkDeletedAll(YES);
     this._shouldUpdateFilter = YES; // someone typed something
     this.showList();
     return NO;
   },
   
   deleteForward: function(evt) {
+    this._checkDeletedAll(NO);
     this._shouldUpdateFilter = YES;
     this.showList();
     return NO;
@@ -523,7 +620,10 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   // since in some cases the entire 'objects' array-like object doesn't
   // get replaced, just modified.
   _objectsDidChange: function() {
+    //console.log('%@._objectsDidChange(%@)'.fmt(this, this.get('objects')));
+
     this.notifyPropertyChange('filteredObjects'); // force a recompute next time 'filteredObjects' is asked for
+    this.notifyPropertyChange('selectedObject');
   }.observes('*objects.[]'),
 
   _filteredObjectsLengthDidChange: function() {
@@ -537,13 +637,25 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   _selectedObjectDidChange: function() {
     var sel = this.get('selectedObject');
     var textField = this.get('textFieldView');
+    var i, content;
 
     // Update 'value' since the selected object changed
-    this.setIfChanged('value', this._getObjectValue(sel, this.get('valueKey')));
+    if (!SC.none(sel) && !SC.none(this.get('value'))) {
+      this.setIfChanged('value', this._getObjectValue(sel, this.get('valueKey')));
+    }
 
     // Update the text in the text field as well
     if (textField) {
       textField.setIfChanged('value', this._getObjectName(sel, this.get('nameKey'), this.get('localize')));
+    }
+
+    // Update the listview's selection
+    if (this._listView.getPath('selection.firstObject') !== sel) {
+      content = this._listView.get('content') || [];
+      i = content.indexOf(sel);
+      if (i >= 0) {
+        this._listView.select(i);
+      }
     }
     
     // null out the filter since we aren't searching any more at this point.
@@ -567,7 +679,7 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
           // Since we're using a 'valueKey', find the object where object[valueKey] === value.
           // If not found, 'selectedObject' and 'value' get forced to null.
           selectedObject = (objects && objects.isEnumerable) ? objects.findProperty(valueKey, value) : null;
-          this.set('selectedObject', selectedObject);
+          this.setIfChanged('selectedObject', selectedObject);
         }
       }
       else {
@@ -578,7 +690,7 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     }
     else {
       // When 'value' is set to null, make sure 'selectedObject' goes to null as well.
-      this.set('selectedObject', null);
+      this.setIfChanged('selectedObject', null);
     }
   }.observes('value'),
 
@@ -586,26 +698,48 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   // of the highlighted item in the text field.
   _listSelectionDidChange: function() {
     var selection = this.getPath('_listSelection.firstObject');
-    var name, textField;
-
+    var name;
+    
     if (selection && this._listPane && this._listPane.get('isPaneAttached')) {
       name = this._getObjectName(selection, this.get('nameKey'), this.get('localize'));
-      textField = this.get('textFieldView');
-
-      if (textField) {
-        textField.setIfChanged('value', name);
-      }
+      this.setPathIfChanged('textFieldView.value', name);
+      this._setIcon(this._getObjectIcon(selection, this.get('iconKey')));
     }
   }.observes('_listSelection'),
 
   // If the text field value changed as a result of typing,
   // update the filter.
   _textFieldValueDidChange: function() {
-    if (this._shouldUpdateFilter) {
+    var textFieldValue = this.getPath('textFieldView.value');
+    if (!textFieldValue) {
+      // Clear out the value and hide the list if the user deletes everything
+      // in the text field.
+      this.setIfChanged('value', null);
+      this.hideList();
+    } else if (this._shouldUpdateFilter) {
       this._shouldUpdateFilter = NO;
-      this.setIfChanged('filter', this.getPath('textFieldView.value'));
+      this.setIfChanged('filter', textFieldValue);
     }
   }.observes('*textFieldView.value'),
+
+  _selectedObjectDidChange: function() {
+    var selectedObject = this.get('selectedObject');
+
+    if (this.getPath('_listSelection.firstObject') !== selectedObject) {
+      this.setPath('_listSelection', selectedObject ? SC.SelectionSet.create().addObject(selectedObject) : SC.SelectionSet.EMPTY);
+    }
+  }.observes('selectedObject'),
+
+  /*
+    Observer added dynamically in init() fires this function
+  */
+  _selectedObjectNameDidChange: function() {
+    this.setPathIfChanged('textFieldView.value', this.get('selectedObjectName'));
+  }.observes('selectedObjectName'),
+
+  _selectedObjectIconDidChange: function() {
+    this._setIcon(this.get('selectedObjectIcon'));
+  }.observes('selectedObjectIcon'),
 
   _createListPane: function() {
     var isBusy = this.get('isBusy');
@@ -618,7 +752,7 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
       acceptsFirstResponder: NO,
 
       contentView: SC.View.extend({
-        layout: { left: 0, right: 0, top: 0, bottom: 0 },
+        layout: { left: 0, right: 0, top: 4, bottom: 4 },
         childViews: 'listView spinnerView'.w(),
         
         listView: csv.extend({
@@ -638,9 +772,48 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
             contentIconKey: this.get('iconKey'),
             selectionBinding: SC.Binding.from('_listSelection', this),
             localizeBinding: SC.Binding.from('localize', this).oneWay(),
+            actOnSelect: SC.platform.touch,
 
             // A regular ListItemView, but with localization added
-            exampleView: SCUI.LocalizableListItemView,
+            exampleView: SC.ListItemView.extend({
+              maxNameLength: this.get('maxNameLength'),
+              localize: this.get('localize'),
+
+              renderLabel: function(context, label) {
+                var maxLength = this.get('maxNameLength');
+                
+                if (!SC.none(maxLength)) {
+                  label = this.truncateMaxLength(label, maxLength);
+                  context.push('<label>', label || '', '</label>');
+                }
+                else {
+                  return sc_super();
+                }
+              },
+              
+              truncateMaxLength: function(str, maxLength) {
+                var i, frontLength, endLength, ret = str;
+
+                if ((SC.typeOf(str) === SC.T_STRING) && (str.length > maxLength)) {
+                  // split character budget between beginning and end of the string
+                  frontLength = Math.max(Math.ceil((maxLength - 3) / 2), 0);
+                  endLength = Math.max(maxLength - 3 - frontLength, 0);
+
+                  // grab segment from front of string
+                  ret = str.substring(0, frontLength);
+
+                  // Add up to three ellipses
+                  for (i = 0; (i < 3) && ((i + frontLength) < maxLength); i++) {
+                    ret = ret + '.';
+                  }
+
+                  // append segment from end of string
+                  ret = ret + str.substring(str.length - endLength);
+                }
+
+                return ret;
+              }
+            }),
           
             // transparently notice mouseUp and use it as trigger
             // to close the list pane
@@ -679,16 +852,7 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
             })
           })
         })
-      }),
-
-      // HACK: [JL] Override mouseDown to return NO since without this
-      // Firefox won't detect clicks on the scroll buttons.
-      // This disables pane-dragging functionality for the picker pane, but we
-      // don't need that.
-      mouseDown: function(evt) {
-        sc_super();
-        return NO;
-      }
+      })
     });
 
     this._listView = this._listPane.getPath('contentView.listView.contentView');
@@ -714,7 +878,7 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
       // unless we're showing the busy indicator there
       length = this.getPath('filteredObjects.length') || (isBusy ? 0 : 1);
 
-      height = (rowHeight * length) + (isBusy ? spinnerHeight : 0);
+      height = (rowHeight * length) + (isBusy ? spinnerHeight : 0) + 14; // content view of pane is inset by a total of 7px top and bottom, so accounting for that
       height = Math.min(height, this.get('maxListHeight')); // limit to max height
       height = Math.max(height, this.get('minListHeight')); // but be sure it is always at least the min height
 
@@ -727,15 +891,36 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
 
   // default action for the list view
   _selectListItem: function() {
-    var selection = this._listView ? this._listView.getPath('selection.firstObject') : null;
-    if (selection) {
-      this.set('selectedObject', selection);
+    var len = this.getPath('filteredObjects.length'),
+        lv = this._listView,
+        selection = lv ? lv.getPath('selection.firstObject') : null;
+    
+    if (lv && len === 1) {
+      var filter = this.get('filter'),
+          obj = lv.getPath('content').objectAt(0),
+          value = obj.get(this.get('nameKey'));
+          
+      if (filter && (value.toLowerCase() === filter.toLowerCase())) {
+        selection = obj;
+      } 
     }
+    
+    if (selection) this.setIfChanged('selectedObject', selection);
     this.hideList();
   },
 
   _sanitizeFilter: function(str){
     return str ? str.replace(this._sanitizeRegEx, '\\$1') : str;
+  },
+
+  _setIcon: function(icon) {
+    if (icon) {
+      this.setPathIfChanged('leftAccessoryView.value', icon);
+      this.setPathIfChanged('textFieldView.leftAccessoryView', this.get('leftAccessoryView'));
+    }
+    else {
+      this.setPathIfChanged('textFieldView.leftAccessoryView', null);
+    }
   },
 
   _getObjectName: function(obj, nameKey, shouldLocalize) {
@@ -749,11 +934,23 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     return name;
   },
 
+  _getObjectIcon: function(obj, iconKey) {
+    var ret = null;
+
+    if (obj && iconKey) {
+      ret = (obj.get ? obj.get(iconKey) : obj[iconKey]) || sc_static('blank');
+    }
+    
+    return ret;
+  },
+
   _getObjectValue: function(obj, valueKey) {
     return obj ? (valueKey ? (obj.get ? obj.get(valueKey) : obj[valueKey]) : obj) : null;
   },
 
   // PRIVATE PROPERTIES
+  
+  _lastSelectedObject: null,
   
   _listPane: null,
   _listScrollView: null,

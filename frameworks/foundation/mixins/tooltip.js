@@ -19,10 +19,17 @@ SCUI.ToolTip = {
     otherwise the alt attribute is useless and pollutes the DOM.
   */
   isImage: NO,
+  
+  displayProperties: ['toolTip'],
 
   renderMixin: function(context, firstTime){
     var toolTip = this.get('toolTip');
     var isImage = this.get('isImage'), attr;
+    
+    // Create a tooltip if alwaysEnableToolTip is YES
+    if ( this.get('alwaysEnableToolTip') && !toolTip ) {
+      toolTip = this.get('title');
+    }
     
     // make sure the tooltip is a string, and don't allow any double quote characters
     toolTip = (SC.typeOf(toolTip) === SC.T_STRING) ? SC.RenderContext.escapeHTML(toolTip).replace(/\"/g, '\'') : '';
@@ -37,7 +44,7 @@ SCUI.ToolTip = {
         title: toolTip
       };
     }
-    
+
     context = context.attr(attr);
   }
 };

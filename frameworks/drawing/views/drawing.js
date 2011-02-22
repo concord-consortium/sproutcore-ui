@@ -159,7 +159,7 @@ SCUI.DrawingView = SC.View.extend({
     var frame = this.get('frame');
     if (firstTime) {
       if (!SC.browser.msie) {
-        context.push('<canvas class="base-layer" width="%@" height="%@">You can\'t use canvas tags</canvas>'.fmt(frame.width, frame.height));
+        context.push('<canvas class="base-layer" width="%@" height="%@"></canvas>'.fmt(frame.width, frame.height));
       }
     }
     else {
@@ -209,7 +209,7 @@ SCUI.DrawingView = SC.View.extend({
   */
   _drawShapes: function(cntx){
     var curr;
-    var shapes = this.get('shapes');
+    var shapes = this.get('shapes') || [];
     var drawingFunc;
     for (var i=0,len=shapes.length;i<len;i++){
       curr = shapes[i];

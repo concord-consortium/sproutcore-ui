@@ -37,7 +37,12 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
 
   didCreateLayer: function() {
     sc_super();
-    this._contentDidChange(); // force an init
+
+    // Force an init.
+    this._contentDidChange();
+
+    var del = this.get('dashboardDelegate');
+    if (del && del.dashboardViewDidInitialize) del.dashboardViewDidInitialize(this);
   },
 
   beginManaging: function() {
@@ -61,7 +66,7 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
   },
 
   mouseDown: function(evt) {
-    var itemView, content, item;
+    var itemView, content, item, dd;
 
     // Since a mouse down could be the start of a drag, save all
     // the data we'll need for it
@@ -70,11 +75,12 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
       itemView = this._itemViewForEvent(evt);
 
       if (itemView && !itemView.getPath('content.isLocked')) { // only start dragging if widget isn't locked
-        this._dragData = SC.clone(itemView.get('layout'));
-        this._dragData.startPageX = evt.pageX;
-        this._dragData.startPageY = evt.pageY;
-        this._dragData.view = itemView;
-        this._dragData.didMove = NO; // haven't moved yet
+        dd = SC.clone(itemView.get('layout'));
+        dd.startPageX = evt.pageX;
+        dd.startPageY = evt.pageY;
+        dd.view = itemView;
+        dd.didMove = NO; // haven't moved yet
+        this._dragData = dd;
       }
     }
     
@@ -82,32 +88,32 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
   },
   
   mouseDragged: function(evt) {
-    var dX, dY;
+    var dX, dY, dd = this._dragData;
 
     // We're in the middle of a drag, so adjust the view using the current drag delta
-    if (this._dragData) {
-      this._dragData.didMove = YES; // so that mouseUp knows whether to report the new position.
-      
-      dX = evt.pageX - this._dragData.startPageX;
-      dY = evt.pageY - this._dragData.startPageY;
-      this._dragData.view.adjust({ left: this._dragData.left + dX, top: this._dragData.top + dY });
+    if (dd) {
+      dd.didMove = YES; // so that mouseUp knows whether to report the new position.
+      dX = evt.pageX - dd.startPageX;
+      dY = evt.pageY - dd.startPageY;
+      dd.view.adjust({ centerX: dd.centerX + dX, centerY: dd.centerY + dY });
     }
 
     return YES;
   },
   
   mouseUp: function(evt) {
-    var content, frame, finalPos, del;
+    var content, frame, finalPos, del, wx, wy, layout;
 
     // If this mouse up comes at the end of a drag of a widget
     // view, try to update the widget's model with new position
     if (this._dragData && this._dragData.didMove) {
       content = this._dragData.view.get('content');
-      frame = this._dragData.view.get('frame');
-
+      layout = this._dragData.view.get('layout');
       // try to update the widget data model with the new position
-      if (content && frame) {
-        finalPos = { x: frame.x, y: frame.y };
+      if (content && layout) {
+        wx = layout.centerX || 0;
+        wy = layout.centerY || 0;
+        finalPos = { x: wx, y: wy };
         this._setItemPosition(content, finalPos);
         
         if (content.widgetDidMove) {
@@ -125,6 +131,21 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
     return YES;
   },
 
+  /**
+   * Overridden here so that we can invoke the delegate if the size of the clipping frame changes.
+   *
+   * The dashboard may want to perform certain actions in this case, like rerrange the widgets
+   * beased on the currently available viewing space.
+   */
+  viewDidResize: function() {
+    sc_super();
+
+    var clippingFrame = this.get('clippingFrame'), del = this.get('dashboardDelegate');
+    if (this._isClippingFrameSizeDifferent(clippingFrame) && del && del.dashboardFrameDidChange) {
+      del.dashboardFrameDidChange(this, clippingFrame);
+    }
+  },
+
   // PRIVATE METHODS
   
   _contentDidChange: function() {
@@ -138,6 +159,27 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
       v.setIfChanged('canDeleteWidget', canDelete);
     });
   }.observes('canDeleteContent'),
+
+  /*
+   * Returns YES if the size of the clipping frame is different than it was the last time this
+   * function was invoked (from viewDidResize()).
+   */
+  _isClippingFrameSizeDifferent: function(cf) {
+    if (!this._previousCFHeight) {
+      // We don't care about differences if the CF is only just now defined.
+      this._previousCFHeight = cf.height;
+      this._previousCFWidth = cf.width;
+      return YES;
+    } else {
+      if (this._previousCFHeight === cf.height && this._previousCFWidth === cf.width) {
+        return NO;
+      } else {
+        this._previousCFHeight = cf.height;
+        this._previousCFWidth = cf.width;
+        return YES;
+      }
+    }
+  },
 
   _updateItemViews: function() {
     var content = this.get('content');
@@ -208,7 +250,7 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
     if (item) {
       pos = this._getItemPosition(item) || { x: 20, y: 20 };
       size = this._getItemSize(item) || { width: 300, height: 100 };
-      layout = { left: pos.x, top: pos.y, width: size.width, height: size.height };
+      layout = { centerX: pos.x, centerY: pos.y, width: size.width, height: size.height };
     }
     return layout;
   },
@@ -295,7 +337,7 @@ SCUI.DashboardView = SC.View.extend( SCUI.DashboardDelegate, {
       sizeKey = item.get('sizeKey');
       size = sizeKey ? item.get(sizeKey) : null;
       if (size) {
-        return { width: (parseFloat(size.width) || 0), height: (parseFloat(size.height) || 0) };
+        return { width: (parseFloat(size.width) || 10), height: (parseFloat(size.height) || 10) };
       }
     }
     

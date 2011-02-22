@@ -1,4 +1,4 @@
-/*global LinkIt */
+/*globals LinkIt*/
 
 LinkIt.Terminal = {
   
@@ -109,7 +109,7 @@ LinkIt.Terminal = {
     Not the same as canLink() above in that linking this terminal to another may still
     be allowed, just not triggered by a drag from this terminal.
   */
-  canDragLink: function() {
+  canDragLink: function() { 
     return YES;
   },
 
@@ -168,7 +168,7 @@ LinkIt.Terminal = {
       // should essentially contain any visible drag items.
       var layer = LinkIt.getLayer(this);
 
-      if (layer) {
+      if (layer && layer.get('isEditable')) {
         var parent = this.get('parentView');    
         var fo = parent.convertFrameFromView(parent.get('frame'), this);
         var frame = this.get('frame');
@@ -223,7 +223,8 @@ LinkIt.Terminal = {
   
   */
   dragSourceOperationMaskFor: function(drag, dropTarget) {
-    return this._nodeAllowsLink(dropTarget) ? SC.DRAG_LINK : SC.DRAG_NONE;
+    var terminal = dropTarget.get('isNodeView') ? dropTarget.get('proxiedTerminalView') : dropTarget;
+    return this._nodeAllowsLink(terminal) ? SC.DRAG_LINK : SC.DRAG_NONE;
   },
 
   /**  
@@ -282,7 +283,6 @@ LinkIt.Terminal = {
   
   */
   dragDidEnd: function(drag, loc, op) {
-    //LinkIt.log('%@.dragDidEnd()'.fmt(this));
     var dragLink = drag.dragLink;
     if (dragLink) {
       dragLink.destroy();
@@ -314,30 +314,26 @@ LinkIt.Terminal = {
     this.linkDragEnded();
   },
   
-  // TODO: [JL] I don't think this is necessary...can just return SC.DRAG_LINK!
   computeDragOperations: function(drag, evt) {
-    //LinkIt.log('%@.computeDragOperations()'.fmt(this));
-    //return (this.canDropLink() && this._nodeAllowsLink(drag.source)) ? SC.DRAG_LINK : SC.DRAG_NONE;
     return SC.DRAG_LINK;
   },
   
   acceptDragOperation: function(drag, op) {
-    //LinkIt.log('%@.acceptDragOperation()'.fmt(this));
     var accept = (op === SC.DRAG_LINK) ? this._nodeAllowsLink(drag.source) : NO; 
     return accept;
   },
   
   performDragOperation: function(drag, op) {
-    var endNode, endTerm, startNode, startTerm;
-    LinkIt.log('%@.performDragOperation()'.fmt(this));
-    endNode = this.get('node');
-    startTerm = drag.source;
-    if (endNode && startTerm) {
-      startNode = startTerm.get('node');
-      if (startNode) {
-        var links = this._getLinkObjects(startTerm, startNode, this, endNode);
-        if (links[0]) startNode.createLink( links[0] ) ;
-        if (links[1]) endNode.createLink( links[1] );
+    var node = this.get('node');
+    var otherTerminal = drag.source;
+    if (node && otherTerminal) {
+      var otherNode = otherTerminal.get('node');
+      if (otherNode) {
+        var linkObj = this._createLinkObject(this, node, otherTerminal, otherNode);
+        node.createLink( SC.Object.create(linkObj) );
+
+        var otherLinkObj = this._createLinkObject(otherTerminal, otherNode, this, node);
+        otherNode.createLink( SC.Object.create(otherLinkObj) );
       }
     }
     return op;
@@ -368,6 +364,7 @@ LinkIt.Terminal = {
   _nodeAllowsLink: function(otherTerminal) {
     var myLinkObj, myNodeAccepted, otherLinkObj, otherNodeAccepted;
     if (otherTerminal && otherTerminal.get('isTerminal')) {
+
       var myNode = this.get('node');
       var otherNode = otherTerminal.get('node');
       

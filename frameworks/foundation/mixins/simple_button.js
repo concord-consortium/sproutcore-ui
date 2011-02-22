@@ -10,20 +10,27 @@
   @since 0.1
 */
 
+// Constants - reference SC button mixin constants for plugability
+SCUI.ACTION_BEHAVIOR = SC.PUSH_BEHAVIOR;
+SCUI.TOGGLE_BEHAVIOR = SC.TOGGLE_BEHAVIOR;
+SCUI.RADIO_BEHAVIOR = "radio";
+
 SCUI.SimpleButton = {
 /* SimpleButton Mixin */
 
   target: null,
   action: null,
-  hasState: NO,
   hasHover: NO,
   inState: NO,
+  buttonBehavior: SCUI.ACTION_BEHAVIOR, // uses constants above
   _hover: NO,
   stateClass: 'state',
   hoverClass: 'hover',
   activeClass: 'active', // Used to show the button as being active (pressed)
-  
-  _isMouseDown: NO, 
+  alwaysEnableToolTip: NO,  
+  _isMouseDown: NO,
+  _isContinuedMouseDown: NO, // This is so we can maintain a held state in the case of mousing out behavior
+  _canFireAction: NO,
   
   displayProperties: ['inState', 'isEnabled'],
 
@@ -33,8 +40,7 @@ SCUI.SimpleButton = {
   mouseDown: function(evt) {
     //console.log('SimpleButton#mouseDown()...');
     if (!this.get('isEnabledInPane')) return YES ; // handled event, but do nothing
-    //this.set('isActive', YES);
-    this._isMouseDown = YES;
+    this._isMouseDown = this._isContinuedMouseDown = this._canFireAction = YES;
     this.displayDidChange();
     return YES ;
   },
@@ -44,11 +50,14 @@ SCUI.SimpleButton = {
   */  
   mouseExited: function(evt) {
     //console.log('SimpleButton#mouseExited()...');
-    if ( this.get('hasHover') ){ 
-      this._hover = NO; 
-      this.displayDidChange();
+    if (this.get('hasHover')) {
+      this._hover = NO;
     }
-    //if (this._isMouseDown) this.set('isActive', NO);
+    if (this._isMouseDown) {
+      this._isMouseDown = NO;
+      this._canFireAction = NO;
+    }
+    this.displayDidChange();
     return YES;
   },
 
@@ -57,11 +66,14 @@ SCUI.SimpleButton = {
   */  
   mouseEntered: function(evt) {
     //console.log('SimpleButton#mouseEntered()...');
-    if ( this.get('hasHover') ){ 
+    if ( this.get('hasHover') ){
       this._hover = YES; 
-      this.displayDidChange();
     }
-    //this.set('isActive', this._isMouseDown);
+    if ( this._isContinuedMouseDown ) { 
+      this._isMouseDown = YES;
+      this._canFireAction = YES;
+    }
+    this.displayDidChange();
     return YES;
   },
 
@@ -69,25 +81,42 @@ SCUI.SimpleButton = {
     ON mouse up, trigger the action only if we are enabled and the mouse was released inside of the view.
   */  
   mouseUp: function(evt) {
+    var bb;
+    this._isMouseDown = this._isContinuedMouseDown = false;
     if (!this.get('isEnabledInPane')) return YES;
+    
+    // Button Behavior parsing to see what actions should occur 
+    bb = this.get('buttonBehavior'); 
+    if (bb === SCUI.RADIO_BEHAVIOR){
+      if (this.get('inState')) {
+        this._canFireAction = false;
+        this.displayDidChange();
+        return YES;
+      }
+      else {
+        this.set('inState', YES);
+      }
+    }
+    else if (bb === SCUI.TOGGLE_BEHAVIOR ){
+      this.set('inState', !this.get('inState'));
+    }
+    
     //console.log('SimpleButton#mouseUp()...');
-    //if (this._isMouseDown) this.set('isActive', NO); // track independently in case isEnabled has changed
-    this._isMouseDown = false;
     // Trigger the action
     var target = this.get('target') || null;
     var action = this.get('action');    
     // Support inline functions
-    if (this._hasLegacyActionHandler()) {
-      // old school... 
-      this._triggerLegacyActionHandler(evt);
-    } else {
-      // newer action method + optional target syntax...
-      this.getPath('pane.rootResponder').sendAction(action, target, this, this.get('pane'));
+    if (this._canFireAction) {
+      if (this._hasLegacyActionHandler()) {
+        // old school... 
+        this._triggerLegacyActionHandler(evt);
+      } else {
+        // newer action method + optional target syntax...
+        this.getPath('pane.rootResponder').sendAction(action, target, this, this.get('pane'));
+      }
     }
-    if (this.get('hasState')) {
-      this.set('inState', !this.get('inState'));
-    }
-    this.displayDidChange();
+    this._canFireAction = false;
+    this.displayDidChange(); 
     return YES;
   },
   
@@ -116,7 +145,7 @@ SCUI.SimpleButton = {
       context.setClass(hoverClass, this._hover && !this._isMouseDown); // addClass if YES, removeClass if NO
     }
     
-    if (this.get('hasState')) {
+    if (this.get('buttonBehavior') !== SCUI.ACTION_BEHAVIOR) {
       var stateClass = this.get('stateClass');
       context.setClass(stateClass, this.inState); // addClass if YES, removeClass if NO
     }
@@ -126,6 +155,12 @@ SCUI.SimpleButton = {
     
     // If there is a toolTip set, grab it and localize if necessary.
     var toolTip = this.get('toolTip') ;
+    
+    // if SCUI.SimpleButton.alwaysEnableToolTip is YES and toolTip is null
+    // get and use title if available.
+    if(this.get('alwaysEnableToolTip') && !toolTip) {
+      toolTip = this.get('title');
+    }
     if (SC.typeOf(toolTip) === SC.T_STRING) {
       if (this.get('localize')) toolTip = toolTip.loc();
       context.attr('title', toolTip);
@@ -163,7 +198,30 @@ SCUI.SimpleButton = {
       eval("this.action = function(e) { return "+ action +"(this, e); };");
       this.action(evt);
     }
-  }
+  },
   
+  _hasStateProperty: function(key, value) {
+    SC.Logger.warn("Deprecation: hasState replaced by buttonBehavior.");
+
+    if (value !== undefined) {
+      this.set('buttonBehavior', value ? SCUI.TOGGLE_BEHAVIOR : SCUI.ACTION_BEHAVIOR);
+    } else {
+      value = this.get('buttonBehavior') !== SCUI.ACTION_BEHAVIOR;
+    }
+    return value;
+  },
+  
+  initMixin: function() {
+    var hasStateProperty = this.hasState;
+
+    // assign computed property
+    this.hasState = this._hasStateProperty.property('buttonBehavior').cacheable();
+
+    // now continue initialization - force through that function to get deprecation warning
+    if (hasStateProperty !== undefined) {
+      this.set('hasState', hasStateProperty);
+    }
+  }
+
 };
 
