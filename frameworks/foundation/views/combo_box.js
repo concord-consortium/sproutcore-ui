@@ -1,4 +1,4 @@
-/*globals SCUI*/
+/*globals SCUI sc_static*/
 
 sc_require('mixins/simple_button');
 
@@ -12,6 +12,7 @@ sc_require('mixins/simple_button');
 
   @extends SC.View, SC.Control, SC.Editable
   @author Jonathan Lewis
+  @author Peter Bergström
 */
 
 SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
@@ -116,6 +117,11 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   useExternalFilter: NO,
   
   /**
+    If you want to highlight the filtered text, then set this to YES.
+  */
+  highlightFilterOnListItem: NO,
+  
+  /**
     Bound internally to the status of the 'objects' array, if present
   */
   status: null,
@@ -128,6 +134,11 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   }.property('status').cacheable(),
 
   /**
+    Row height for each item.
+  */
+  rowHeight: 18,
+
+  /**
     The drop down pane resizes automatically.  Set the minimum allowed height here.
   */
   minListHeight: 18,
@@ -136,12 +147,28 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     The drop down pane resizes automatically.  Set the maximum allowed height here.
   */
   maxListHeight: 194, // 10 rows at 18px, plus 7px margin on top and bottom
+  
+  /**
+    If a custom class name is desired for the picker, add it here.
+  */
+  customPickerClassName: null,
+  
+  /**
+    The drop down pane width
+  */
+  dropDownMenuWidth: null,
+  
 
   /**
     When 'isBusy' is true, the combo box shows a busy indicator at the bottom of the
     drop down pane.  Set its height here.
   */
   statusIndicatorHeight: 20,
+
+  /**
+    True allows the user to clear the value by deleting all characters in the textfield.  False will reset the textfield to the last entered value.
+  */
+  canDeleteValue: NO,
 
   /**
     'objects' above, filtered by 'filter', then optionally sorted.
@@ -235,7 +262,8 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   */
   textFieldView: SC.TextFieldView.extend({
     classNames: 'scui-combobox-text-field-view',
-    layout: { top: 0, left: 0, height: 22, right: 28 }
+    layout: { top: 0, left: 0, height: 22, right: 28 },
+    spellCheckEnabled: NO
   }),
 
   /**
@@ -509,10 +537,11 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   },
   
   _checkDeletedAll: function(delBackward) {
+    if (!this.get('canDeleteValue')) return;
     var value = this.get('textFieldView').get('value'),
         selection = this.get('textFieldView').get('selection'),
         wouldDeleteLastChar = NO;
-    if (!value.length) {
+    if (!value || !value.length) {
       wouldDeleteLastChar = YES;
     } else if (value.length === selection.length()) {
       wouldDeleteLastChar = YES;
@@ -634,68 +663,10 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     this.invokeOnce('_updateListPaneLayout');
   }.observes('isBusy'),
 
-  _selectedObjectDidChange: function() {
-    var sel = this.get('selectedObject');
-    var textField = this.get('textFieldView');
-    var i, content;
-
-    // Update 'value' since the selected object changed
-    if (!SC.none(sel) && !SC.none(this.get('value'))) {
-      this.setIfChanged('value', this._getObjectValue(sel, this.get('valueKey')));
-    }
-
-    // Update the text in the text field as well
-    if (textField) {
-      textField.setIfChanged('value', this._getObjectName(sel, this.get('nameKey'), this.get('localize')));
-    }
-
-    // Update the listview's selection
-    if (this._listView.getPath('selection.firstObject') !== sel) {
-      content = this._listView.get('content') || [];
-      i = content.indexOf(sel);
-      if (i >= 0) {
-        this._listView.select(i);
-      }
-    }
-    
-    // null out the filter since we aren't searching any more at this point.
-    this.set('filter', null);
-  }.observes('selectedObject'),
-
-  // When the selected item ('value') changes, try to map back to a 'selectedObject'
-  // as well.
-  _valueDidChange: function() {
-    var value = this.get('value');
-    var selectedObject = this.get('selectedObject');
-    var valueKey = this.get('valueKey');
-    var objects;
-
-    if (value) {
-      if (valueKey) {
-        // we need to update 'selectedObject' if 'selectedObject[valueKey]' is not 'value
-        if (value !== this._getObjectValue(selectedObject, valueKey)) {
-          objects = this.get('objects');
-
-          // Since we're using a 'valueKey', find the object where object[valueKey] === value.
-          // If not found, 'selectedObject' and 'value' get forced to null.
-          selectedObject = (objects && objects.isEnumerable) ? objects.findProperty(valueKey, value) : null;
-          this.setIfChanged('selectedObject', selectedObject);
-        }
-      }
-      else {
-        // with no 'valueKey' set, we allow setting 'value' and 'selectedObject'
-        // to something not found in 'objects'
-        this.setIfChanged('selectedObject', value);
-      }
-    }
-    else {
-      // When 'value' is set to null, make sure 'selectedObject' goes to null as well.
-      this.setIfChanged('selectedObject', null);
-    }
-  }.observes('value'),
-
-  // triggered by arrowing up/down in the drop down list -- show the name
-  // of the highlighted item in the text field.
+  /*
+    Triggered by arrowing up/down in the drop down list -- show the name
+    of the highlighted item in the text field.
+  */
   _listSelectionDidChange: function() {
     var selection = this.getPath('_listSelection.firstObject');
     var name;
@@ -710,15 +681,9 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
   // If the text field value changed as a result of typing,
   // update the filter.
   _textFieldValueDidChange: function() {
-    var textFieldValue = this.getPath('textFieldView.value');
-    if (!textFieldValue) {
-      // Clear out the value and hide the list if the user deletes everything
-      // in the text field.
-      this.setIfChanged('value', null);
-      this.hideList();
-    } else if (this._shouldUpdateFilter) {
+    if (this._shouldUpdateFilter) {
       this._shouldUpdateFilter = NO;
-      this.setIfChanged('filter', textFieldValue);
+      this.setIfChanged('filter', this.getPath('textFieldView.value'));
     }
   }.observes('*textFieldView.value'),
 
@@ -746,8 +711,15 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     var spinnerHeight = this.get('statusIndicatorHeight');
     var csv = this.get('customScrollView') || SC.ScrollView;
 
+    var classNames = ['scui-combobox-list-pane', 'sc-menu'],
+        customPickerClassName = this.get('customPickerClassName');
+    
+    if(customPickerClassName) {
+      classNames.push(customPickerClassName);
+    }
+
     this._listPane = SC.PickerPane.create({
-      classNames: ['scui-combobox-list-pane', 'sc-menu'],
+      classNames: classNames,
       acceptsKeyPane: NO,
       acceptsFirstResponder: NO,
 
@@ -765,6 +737,7 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
             layout: { left: 0, right: 0, top: 0, bottom: 0 },
             allowsMultipleSelection: NO,
             target: this,
+            rowHeight: this.get('rowHeight'),
             action: '_selectListItem', // do this when [Enter] is pressed, for example
             contentBinding: SC.Binding.from('filteredObjects', this).oneWay(),
             contentValueKey: this.get('nameKey'),
@@ -778,17 +751,37 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
             exampleView: SC.ListItemView.extend({
               maxNameLength: this.get('maxNameLength'),
               localize: this.get('localize'),
+              
+              displayProperties: ['highlightSpan'],
+
+              highlightFilteredSpan: this.get('highlightFilterOnListItem'),
+
+              comboBoxView: this,
 
               renderLabel: function(context, label) {
+                
                 var maxLength = this.get('maxNameLength');
                 
                 if (!SC.none(maxLength)) {
                   label = this.truncateMaxLength(label, maxLength);
-                  context.push('<label>', label || '', '</label>');
                 }
-                else {
-                  return sc_super();
+
+                if(this.get('highlightFilteredSpan')) {
+                  var comboBoxView = this.get('comboBoxView');
+                  
+                  if(comboBoxView) {
+                    var filter = comboBoxView.get('filter'),
+                        regex;
+
+                    if(filter.length > 1) {
+                      regex = new RegExp('(' + comboBoxView._sanitizeFilter(filter) + ')', 'gi');
+                      label = label.replace(regex, '<span class="highlight-filtered-text">$1</span>');
+                    }
+                  }
                 }
+                
+                context.push('<label>', label || '', '</label>');
+
               },
               
               truncateMaxLength: function(str, maxLength) {
@@ -868,11 +861,11 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
 
     if (this._listView && this._listPane && this._listScrollView) {
       frame = this.get('frame');
-      width = frame ? frame.width : 200;
+      width = this.get('dropDownMenuWidth') ? this.get('dropDownMenuWidth') : frame ? frame.width : 200;
 
       isBusy = this.get('isBusy');
       spinnerHeight = this.get('statusIndicatorHeight');
-      rowHeight = this._listView.get('rowHeight') || 18;
+      rowHeight = this._listView.get('rowHeight') || this.get('rowHeight');
 
       // even when list is empty, show at least one row's worth of height,
       // unless we're showing the busy indicator there
@@ -898,9 +891,9 @@ SCUI.ComboBoxView = SC.View.extend( SC.Control, SC.Editable, {
     if (lv && len === 1) {
       var filter = this.get('filter'),
           obj = lv.getPath('content').objectAt(0),
-          value = obj.get(this.get('nameKey'));
+          value = obj.get ? obj.get(this.get('nameKey')) : obj[this.get('nameKey')];
           
-      if (filter && (value.toLowerCase() === filter.toLowerCase())) {
+      if (filter && value && (value.toLowerCase() === filter.toLowerCase())) {
         selection = obj;
       } 
     }

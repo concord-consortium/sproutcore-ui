@@ -3,8 +3,6 @@
 // ==========================================================================
 /*globals SCUI */
 
-sc_require('core');
-
 /** @class
 
   This is the Date Chooser View that creates a text field, a button that launches a calendar chooser
@@ -30,6 +28,13 @@ SCUI.DatePickerView = SC.View.extend(
   hasHelperButtons: YES,
   
   isEditing: NO,
+  
+  /** 
+    The isTextFieldEnabled property determines if the textfield view is enabled
+    
+    @property {Boolean}
+  */
+  isTextFieldEnabled: YES,
   
   // @private
   _textfield: null,
@@ -57,20 +62,27 @@ SCUI.DatePickerView = SC.View.extend(
     // init the dateString to whatever date we're starting with (if present)
     this.set('dateString', this._genDateString(this.get('date')));
     
+    var textFieldDesign = {
+      layout: {left: 0, top: 0, right: 0, bottom: 0},
+      classNames: ['scui-datechooser-text'],
+      isEnabled: YES,
+      valueBinding: SC.Binding.from('.dateString', that),
+      hintBinding: SC.Binding.from('hint', that),
+      mouseDown: function (evt) {
+        that.toggle();
+        sc_super();
+      }
+    };
+    
+    if (this.get('isTextFieldEnabled')) {
+      textFieldDesign.isEnabledBinding = SC.binding('isEnabled', that);
+    } else {
+      textFieldDesign.isEnabled = NO;
+    }
+    
     // First, Build the Textfield for the date chooser
     view = this._textfield = this.createChildView( 
-      SC.TextFieldView.design( {
-        layout: {left: 0, top: 0, right: 0, bottom: 0},
-        classNames: ['scui-datechooser-text'],
-        isEnabled: YES,
-        isEnabledBinding: SC.binding('isEnabled', that),
-        valueBinding: SC.Binding.from('.dateString', that),
-        hintBinding: SC.Binding.from('hint', that),
-        mouseDown: function (evt) {
-          that.toggle();
-          sc_super();
-        }
-      })
+      SC.TextFieldView.design(textFieldDesign)
     );
     childViews.push(view);
     this.bind('isEditing', SC.Binding.from('isEditing', view).oneWay());
@@ -99,17 +111,17 @@ SCUI.DatePickerView = SC.View.extend(
     hb = SC.none(hb) ? YES : hb;
     // Create the reference to the calendar
     this._calendar_popup = SC.PickerPane.create({
-      layout: cl || { width: 205, height: 255 },
+      classNames: ['scui-calendar'],
+      layout: cl || { width: 205, height: 244 },
       contentView: SC.View.design({
         childViews: 'calendar todayButton noneButton'.w(),
         calendar: SCUI.CalendarView.design({
-          classNames: ['calendar'],
-          layout: { left: 0, top: 0, height: 230, right: 0 },
+          layout: { left: 0, top: 0, bottom: 0, right: 0 },
           selectedDateBinding: SC.Binding.from('date', that)
         }),
         todayButton: SC.View.extend(SCUI.SimpleButton, {
-          classNames: ['scui-datepicker-today'],
-          layout: {left: 10, bottom: 5, width: 50, height: 18},
+          classNames: ['date-today'],
+          layout: {left: 11, bottom: 7, width: 50, height: 16 },
           target: this,
           action: 'selectToday',
           isVisible: hb,
@@ -120,8 +132,8 @@ SCUI.DatePickerView = SC.View.extend(
           }
         }),
         noneButton: SC.View.design( SCUI.SimpleButton, {
-          classNames: ['scui-datepicker-none'],
-          layout: {right: 10, bottom: 5, width: 50, height: 18},
+          classNames: ['date-none'],
+          layout: {right: 11, bottom: 7, width: 50, height: 16 },
           target: this,
           action: 'clearSelection',
           isVisible: hb,

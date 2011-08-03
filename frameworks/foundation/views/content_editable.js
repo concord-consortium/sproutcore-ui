@@ -3,7 +3,6 @@
 // ==========================================================================
 /*globals NodeFilter SC SCUI sc_require */
 
-sc_require('core');
 sc_require('panes/context_menu_pane');
 
 /** @class
@@ -702,17 +701,43 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
     return SC.none(selection) ? '': selection.toString();
   }.property('selection').cacheable(),
 
+  // [JS]: Firefox throws exceptions under certain circumstances
+  // 1) justify being queried if an iframe is not actually rendered on the screen
+  // 2) query for font or color and the CSS state is different from the tags
+  //    e.g., if the color is set by div.style = { color: ... }, an exception will fire if it first sees the older <span color=>
+  // there are enough of these oddities that will show up in imported (and migrated) pages to make it worth catching for now and addressing later
+  // rather than letting the exception destabilize the system
+  _queryCommandState: function(doc, prop) {
+    var e = null;
+    try {
+      return doc.queryCommandState(prop);
+    } catch (e) {
+      SC.Logger.warn("queryCommandState got exception for property " + prop);
+      return NO;
+    }
+  },
+
+  _queryCommandValue: function(doc, prop) {
+    var e = null;
+    try {
+      return doc.queryCommandValue(prop);
+    } catch (e) {
+      SC.Logger.warn("queryCommandState got exception for property " + prop);
+      return null;
+    }
+  },
+
   _selectionIsSomething: function(key, val, something) {
-    var editor = this._document;
-    if (!editor) return NO;
+    var doc = this._document;
+    if (!doc) return NO;
 
     if (val !== undefined) {
-      if (editor.execCommand(something, false, val)) {
+      if (doc.execCommand(something, false, val)) {
         this.set('isEditing', YES);
       }
     }
 
-    return editor.queryCommandState(something);
+    return this._queryCommandState(doc, something);
   },
 
   selectionIsBold: function(key, val) {
@@ -745,14 +770,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
       this.querySelection();
       this.set('isEditing', YES);
     }
-    // [JS]: Firefox throws exception if this is called while the iframe is hidden
-    // this happens when transitioning from full to regular edit in dynamic content
-    // and sometimes when transitioning from src view to content-editable view in the other editors
-    try {
-      return doc.queryCommandState(justify);
-    } catch (e) {
-      return NO;
-    }
+    return this._queryCommandState(doc, justify);
   },
 
   selectionIsCenterJustified: function(key, val) {
@@ -822,7 +840,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
       this.set('isEditing', YES);
     }
 
-    return doc.queryCommandState('insertorderedlist');
+    return this._queryCommandState(doc, 'insertorderedlist');
   }.property('selection').cacheable(),
 
   selectionIsUnorderedList: function(key, val) {
@@ -840,7 +858,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
       this.set('isEditing', YES);
     }
 
-    return doc.queryCommandState('insertunorderedlist');
+    return this._queryCommandState(doc, 'insertunorderedlist');
   }.property('selection').cacheable(),
 
   _createListForIE: function(tag) {
@@ -962,7 +980,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
         this.set('isEditing', YES);
       }
     } else {
-      var elm = this._findFontTag(this._getSelectedElement());
+      var elm = this._findFontTag(this._getSelectedElement(), "fontFamily");
       if (elm && elm.nodeName.toLowerCase() === 'font') {
         ret = elm.style.fontFamily;
       } else {
@@ -998,7 +1016,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
         return value;
       }
     } else {
-      var elm = this._findFontTag(this._getSelectedElement());
+      var elm = this._findFontTag(this._getSelectedElement(), "fontSize");
       if (elm && elm.nodeName.toLowerCase() === 'font') {
         ret = elm.style.fontSize;
       } else {
@@ -1008,9 +1026,9 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
     }
   }.property('selection').cacheable(),
 
-  _findFontTag: function(elem) {
+  _findFontTag: function(elem, property) {
     while (elem && elem.nodeName !== 'BODY') {
-      if (elem.nodeName === 'FONT') {
+      if (elem.nodeName === 'FONT' && elem.style && elem.style[property]) {
         return elem;
       } else {
         elem = elem.parentNode;
@@ -1020,10 +1038,11 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
   },
 
   selectionFontColor: function(key, value) {
-    if (!this.get('isVisibleInWindow')) return '';
+    var ret = '';
+    if (!this.get('isVisibleInWindow')) return ret;
 
     var doc = this._document;
-    if (!doc) return '';
+    if (!doc) return ret;
 
     if (!SC.browser.msie) {
       doc.execCommand('styleWithCSS', false, true);
@@ -1040,28 +1059,29 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
       }
     }
 
+    if (this._last_font_color_cache) {
+      ret = this._last_font_color_cache;
+    } else {
+      var color = this._queryCommandValue(doc, 'forecolor');
+      if (color) {
+        this._last_font_color_cache = SC.browser.msie ? this.convertBgrToHex(color) : SC.parseColor(color);
+        ret = this._last_font_color_cache;
+      }
+    }
+
     if (!SC.browser.msie) {
       doc.execCommand('styleWithCSS', false, false);
     }
 
-    if (this._last_font_color_cache) {
-      return this._last_font_color_cache;
-    } else {
-      var color = doc.queryCommandValue('forecolor');
-      if (color) {
-        this._last_font_color_cache = SC.browser.msie ? this.convertBgrToHex(color) : SC.parseColor(color);
-        return this._last_font_color_cache;
-      }
-    }
-
-    return '';
+    return ret;
   }.property('selection').cacheable(),
 
   selectionBackgroundColor: function(key, value) {
-    if (!this.get('isVisibleInWindow')) return '';
+    var ret = '';
+    if (!this.get('isVisibleInWindow')) return ret;
 
     var doc = this._document;
-    if (!doc) return '';
+    if (!doc) return ret;
 
     var prop = SC.browser.msie ? 'backcolor': 'hilitecolor';
     if (!SC.browser.msie) {
@@ -1084,23 +1104,24 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
       }
     }
 
-    if (!SC.browser.msie) {
-      doc.execCommand('styleWithCSS', false, false);
-    }
     if (this._last_background_color_cache) {
-      return this._last_background_color_cache;
+      ret = this._last_background_color_cache;
     } else {
-      var color = doc.queryCommandValue(prop);
+      var color = this._queryCommandValue(doc, prop);
       if (color !== 'transparent') {
         color = SC.browser.msie ? this.convertBgrToHex(color) : SC.parseColor(color);
         if (color) {
           this._last_background_color_cache = color;
-          return this._last_background_color_cache;
+          ret = this._last_background_color_cache;
         }
       }
     }
+    
+    if (!SC.browser.msie) {
+      doc.execCommand('styleWithCSS', false, false);
+    }
 
-    return '';
+    return ret;
   }.property('selection').cacheable(),
 
   hyperlinkValue: function(key, value) {
@@ -1235,15 +1256,21 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
   imageBorderStyle: function(key, value) {
     var image = this.get('selectedImage');
     if (!image) return '';
-
+    
     if (value !== undefined) {
       this.set('isEditing', YES);
       image.style.borderStyle = value;
+      if (value === 'none') { 
+        image.style.border = 0; // blow away the border to be safe.
+      }
+      else {
+        delete image.style.border;
+      }
       return value;
 
     } else {
       return image.style.borderStyle;
-
+  
     }
   }.property('selectedImage').cacheable(),
 
@@ -1369,7 +1396,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
     return NO;
   },
 
-  // HACK: [MT] Should do something similar to what's being done on
+  // HACK: [JS] Should do something similar to what's being done on
   // image creation (Assigning the newly created image to the selectedImage
   // property)
   // "fixed"? [JS] if no real selection, then selection returns next element
@@ -1670,7 +1697,7 @@ SCUI.ContentEditableView = SC.WebView.extend(SC.Editable,
         // endContainer is the BODY, endContainer's offset child is the BR tag, the previous sibling from that is your 'A'
         // also works for end of the document, where there's an implicit BR created automatically for you
         // fortunately, this works even if the selected range was styled, because the a tag went around the styles
-        if (!node && (range.endContainer.childNodes[range.endOffset] && range.endContainer.childNodes[range.endOffset].previousSibling.tagName === 'A')) {
+        if (!node && (range.endContainer.childNodes[range.endOffset] && range.endContainer.childNodes[range.endOffset].previousSibling && range.endContainer.childNodes[range.endOffset].previousSibling.tagName === 'A')) {
           node = range.endContainer.childNodes[range.endOffset].previousSibling;
         }
       }
