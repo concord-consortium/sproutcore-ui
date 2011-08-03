@@ -652,7 +652,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   
   /**
   */
-  links: [],
+  _links: [],
 
   _nodeIndex: {},
   _nodeViewIndex: {},
