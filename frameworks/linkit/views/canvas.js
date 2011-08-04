@@ -453,7 +453,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
         });
       });
     }
-    this.set('links', links);
+    this._links = links;
     this.updateCanvas();
   },
 
