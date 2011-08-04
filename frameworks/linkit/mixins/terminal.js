@@ -329,8 +329,9 @@ LinkIt.Terminal = {
     if (node && otherTerminal) {
       var otherNode = otherTerminal.get('node');
       if (otherNode) {
-        var linkObj = this._createLinkObject(this, node, otherTerminal, otherNode);
-        node.createLink( SC.Object.create(linkObj) );
+        // why are we creating two links?
+        // var linkObj = this._createLinkObject(this, node, otherTerminal, otherNode);
+        // node.createLink( SC.Object.create(linkObj) );
 
         var otherLinkObj = this._createLinkObject(otherTerminal, otherNode, this, node);
         otherNode.createLink( SC.Object.create(otherLinkObj) );
