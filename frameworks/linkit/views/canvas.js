@@ -306,6 +306,11 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       if (this.get('isEditable')) { // only allow possible drag if this view is editable
         itemView = this.itemViewForEvent(evt);
         
+        // need a run loop to ensure the item that was just clicked on gets its
+        // isSelected property correctly set
+        SC.RunLoop.begin();
+        SC.RunLoop.end();
+        
         var selectedViews = this.get('childViews').filter(function(view){
           return (view.get('isSelected'));
         });
