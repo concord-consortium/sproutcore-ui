@@ -242,9 +242,10 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   */
   deleteLinkSelection: function() {
     var links = this.get('selectedLinks');
+    var self = this;
     if (links) {
       links.forEach(function(link) {
-        if (link && link.canDelete() && this.get('isEditable')) {
+        if (link && link.canDelete() && self.get('isEditable')) {
           var startNode = link.get('startNode');
           var endNode = link.get('endNode');
           if (startNode && endNode) {
