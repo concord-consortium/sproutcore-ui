@@ -371,7 +371,7 @@ LinkIt.Terminal = {
       
       // First, Check nodes for compatability
       var links = this._getLinkObjects(otherTerminal, otherNode, this, myNode);
-      myNodeAccepted =  (myNode && links[0]) ? myNode.canLink( links[0] ) : NO;
+      myNodeAccepted =  (myNode && links && links[0]) ? myNode.canLink( links[0] ) : NO;
       otherNodeAccepted = (otherNode && myNodeAccepted && links[1]) ? otherNode.canLink( links[1] ) : NO;
     }
     if (otherTerminal && otherTerminal.get('isCanvas')) {
