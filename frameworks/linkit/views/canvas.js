@@ -26,7 +26,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     the canvas differently when empty if you want to.
   */
   isEmpty: YES,
-  
+
   /**
     SC.CollectionView property that lets delete keys be detected
   */
@@ -47,7 +47,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     on the canvas.
   */
   contextMenuTarget: null,
-  
+
   /**
     Optional action to be performed when the canvas is right-clicked anywhere.
   */
@@ -57,7 +57,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     How close you have to click to a line before it is considered a hit
   */
   LINK_SELECTION_FREEDOM: 6,
-  
+
   /**
     Pointer to (most recently) selected link object
   */
@@ -73,7 +73,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   */
   allowMultipleSelection: NO,
   selectedLinks: [],
-  
+
   /**
   */
   displayProperties: ['frame'],
@@ -82,45 +82,45 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   * Easy to use detection of the canvas class
   */
   isCanvas : YES,
-  
+
   //*** SC.DropTarget ***
   /**
-  	Must be true when your view is instantiated.
+    Must be true when your view is instantiated.
 
-  	Drop targets must be specially registered in order to receive drop
-  	events.  SproutCore knows to register your view when this property
-  	is true on view creation.
-  */  
+    Drop targets must be specially registered in order to receive drop
+    events.  SproutCore knows to register your view when this property
+    is true on view creation.
+  */
   isDropTarget: YES,
-  
+
   // PUBLIC METHODS
-  
+
   /**
    * You would need to override this function with your specific handler
    * to handle Drops to the canvas.
    */
   acceptCanvasDrop: YES,
-  
+
   computeDragOperations: function(drag, evt) {
-  	// Make it dependent on acceptCanvasDrop
+    // Make it dependent on acceptCanvasDrop
     return this.acceptCanvasDrop?SC.DRAG_LINK:SC.DRAG_NONE;
-  }, 
-  
+  },
+
   /**
    * Overridden perform drag operation so that CollectionView#performDragOperation will
    * not get called.
    * If you would like to implement a Canvas Drop to Create a new element
-   * just override this operation to do what you need to do 
-   * 
+   * just override this operation to do what you need to do
+   *
    * @param drag
    * @param op
    * @returns
    */
   performDragOperation: function(drag, op) {
-  	return SC.DRAG_NONE;
+    return SC.DRAG_NONE;
   },
-  
- 
+
+
   /**
     Call this to trigger a links refresh
   */
@@ -131,32 +131,32 @@ LinkIt.CanvasView = SC.CollectionView.extend({
 
   render: function(context, firstTime) {
     var ctx, ce, frame = this.get('frame');
-    
+
     if (firstTime && !SC.browser.msie) {
       context.push('<canvas class="base-layer" width="%@" height="%@"></canvas>'.fmt(frame.width, frame.height));
     }
 
     this.invokeOnce('updateCanvas');
-    
+
     sc_super();
   },
-  
+
   updateCanvas: function() {
-    var ce, ctx = this._canvasContext, 
+    var ce, ctx = this._canvasContext,
         frame = this.get('clippingFrame');
     if (!ctx){
       ce = this.$('canvas.base-layer');
       ctx = (ce && ce.length > 0) ? ce[0].getContext('2d') : null;
     }
-    
+
     if (ctx) {
-      ctx.clearRect(frame.x, frame.y, frame.width + 4, frame.height + 4);      
+      ctx.clearRect(frame.x, frame.y, frame.width + 4, frame.height + 4);
       this._drawLinks(ctx);
     } else {
       this.set('layerNeedsUpdate', YES) ;
     }
   },
-  
+
   didCreateLayer: function() {
     if (SC.browser.msie) {
       var frame = this.get('frame');
@@ -214,7 +214,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       position = this._genRandomPosition();
       this._setItemPosition(node, position);
     }
-    
+
     // override the layout so we can control positioning of this node view
     layout = { top: position.y, left: position.x, width: frame.width, height: frame.height };
     view.set('layout', layout);
@@ -289,7 +289,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
             itemIsEnabledKey: 'isEnabled',
             items: menuOptions
           });
-        
+
           menuPane.popup(this, evt);
         }
       }
@@ -305,20 +305,20 @@ LinkIt.CanvasView = SC.CollectionView.extend({
 
       if (this.get('isEditable')) { // only allow possible drag if this view is editable
         itemView = this.itemViewForEvent(evt);
-        
+
         // need a run loop to ensure the item that was just clicked on gets its
         // isSelected property correctly set
         SC.RunLoop.begin();
         SC.RunLoop.end();
-        
+
         var selectedViews = this.get('childViews').filter(function(view){
           return (view.get('isSelected'));
         });
-        
+
         var selectedViewsMap = selectedViews.map(function(view){
           return {view: view, position: view.get('layout')};
-        })
-        
+        });
+
         if (itemView) {
           this._dragData = SC.clone(itemView.get('layout'));
           this._dragData.startPageX = evt.pageX;
@@ -331,9 +331,9 @@ LinkIt.CanvasView = SC.CollectionView.extend({
         }
       }
     }
-    
+
     return YES;
-  }, 
+  },
 
   mouseDragged: function(evt) {
     var x, y, itemFrame, thisFrame;
@@ -345,10 +345,10 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       // during the drag.
       itemFrame = this._dragData.itemFrame;
       thisFrame = this._dragData.ownerFrame;
-      
+
       var dx = evt.pageX - this._dragData.startPageX;
       var dy = evt.pageY - this._dragData.startPageY;
-      
+
       this._dragData.selectedViews.forEach(function(viewMap){
         // proposed new position
         x = viewMap.position.left + dx;
@@ -361,7 +361,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
         else if ((x + itemFrame.width) > thisFrame.width) {
           x = thisFrame.width - itemFrame.width;
         }
-      
+
         if (y < 0) {
           y = 0;
         }
@@ -372,7 +372,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       // this._dragData.view.adjust({ left: x, top: y });
         viewMap.view.adjust({ left: x, top: y });
       });
-      
+
       this.invokeOnce('updateCanvas'); // so that lines get redrawn
     }
 
@@ -405,7 +405,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
           this.getPath('pane.rootResponder').sendAction(action, this.get('contextMenuTarget'), this, this.get('pane'), evt);
         }
       }
-    } 
+    }
     return ret;
   },
 
@@ -415,7 +415,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   },
 
   // PRIVATE METHODS
-  
+
   _layoutForNodeView: function(nodeView, node) {
     var layout = null, position, frame;
 
@@ -433,7 +433,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     }
     return layout;
   },
-  
+
   _updateLinks: function() {
     //console.log('%@._updateLinks()'.fmt(this));
     // N.B. This is notably different from master
@@ -452,7 +452,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       var tempArray = [];
       o:for(var i=0; i<links.length; i++) {
         for (var j=0; j<tempArray.length; j++) {
-          if(tempArray[j]==links[i]) {
+          if(tempArray[j]===links[i]) {
             continue o;
           }
         }
@@ -499,12 +499,12 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       }
     }
   },
-  
+
   _endpointsFor: function(link) {
     var startTerminal = this._terminalViewFor(link.get('startNode'), link.get('startTerminal'));
     var endTerminal = this._terminalViewFor(link.get('endNode'), link.get('endTerminal'));
     var startPt = null, endPt = null, pv, frame;
-    
+
     if (startTerminal && endTerminal) {
       pv = startTerminal.get('parentView');
       if (pv) {
@@ -513,7 +513,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
         startPt.x = SC.midX(frame); startPt.y = SC.midY(frame);
         link.set('startPt', startPt);
       }
-    
+
       // Second Find the End
       pv = endTerminal.get('parentView');
       if (pv) {
@@ -537,7 +537,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     }
     return startPt && endPt ? { startPt: startPt, endPt: endPt } : null;
   },
-  
+
   /**
     pt = mouse click location { x: , y: } in canvas frame space
   */
@@ -558,7 +558,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       dist = link.distanceSquaredFromLine(pt);
       if ((SC.typeOf(dist) === SC.T_NUMBER) && (dist <= maxDist)) {
         if (append) {
-          if (this.get('selectedLinks').indexOf(link) == -1) {  // not already selected
+          if (this.get('selectedLinks').indexOf(link) === -1) {  // not already selected
             link.set('isSelected', YES);
             this.set('linkSelection', link);
             // this.get('selectedLinks').pushObject(link); <-- this doesn't seem to trigger property observers
@@ -595,7 +595,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     // trigger a redraw of the canvas
     this.invokeOnce('updateCanvas');
   },
-  
+
   _terminalViewFor: function(node, terminal) {
     var nodeView = this._nodeViewIndex[SC.guidFor(node)];
     if (nodeView && nodeView.terminalViewFor) {
@@ -608,13 +608,13 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     this._nodeSetup();
     this.linksDidChange(); // schedules a links update at the end of the run loop
   },
-  
+
   /**
   */
   _contentDidChange: function() {
     this.invokeOnce('_handleContentDidChange');
   }.observes('*content.[]'), // without the '*' at the beginning, this doesn't get triggered
-  
+
   _nodeSetup: function(){
     var nodes = this.get('content');
     var numNodes = 0;
@@ -628,14 +628,14 @@ LinkIt.CanvasView = SC.CollectionView.extend({
         if (SC.none(this._nodeIndex[nodeID])){
           node.registerInvalidationDelegate(this, 'linksDidChange');
           this._nodeIndex[nodeID] = node;
-        } 
+        }
       }
     }
 
     // Update the canvas state
     this.set('isEmpty', numNodes <= 0);
   },
-  
+
   /**
     Encapsulates the standard way the dashboard attempts to extract the last
     position from the dashboard element.
@@ -648,10 +648,10 @@ LinkIt.CanvasView = SC.CollectionView.extend({
     if (posKey && pos) {
       pos = { x: (parseFloat(pos.x) || 0), y: (parseFloat(pos.y) || 0) };
     }
-    
+
     return pos;
   },
-  
+
   /**
     Encapsulates the standard way the dashboard attempts to store the last
     position on a dashboard element.
@@ -663,7 +663,7 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       item.set(posKey, pos);
     }
   },
-  
+
   /**
     Generates a random (x,y) where x=[10, 600), y=[10, 400)
   */
@@ -673,22 +673,22 @@ LinkIt.CanvasView = SC.CollectionView.extend({
       y: Math.floor(10 + Math.random() * 390)
     };
   },
-  
+
   // PRIVATE PROPERTIES
-  
+
   /**
   */
   _links: [],
 
   _nodeIndex: {},
   _nodeViewIndex: {},
-  
+
   /**
     @private: parameters
   */
   _dragData: null,
-  
+
   _canvasContext: null
-  
+
 });
 
