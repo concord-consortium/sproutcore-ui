@@ -329,8 +329,9 @@ LinkIt.Terminal = {
     if (node && otherTerminal) {
       var otherNode = otherTerminal.get('node');
       if (otherNode) {
-        var linkObj = this._createLinkObject(this, node, otherTerminal, otherNode);
-        node.createLink( SC.Object.create(linkObj) );
+        // why are we creating two links?
+        // var linkObj = this._createLinkObject(this, node, otherTerminal, otherNode);
+        // node.createLink( SC.Object.create(linkObj) );
 
         var otherLinkObj = this._createLinkObject(otherTerminal, otherNode, this, node);
         otherNode.createLink( SC.Object.create(otherLinkObj) );
@@ -370,8 +371,11 @@ LinkIt.Terminal = {
       
       // First, Check nodes for compatability
       var links = this._getLinkObjects(otherTerminal, otherNode, this, myNode);
-      myNodeAccepted =  (myNode && links[0]) ? myNode.canLink( links[0] ) : NO;
-      otherNodeAccepted = (otherNode && myNodeAccepted && links[1]) ? otherNode.canLink( links[1] ) : NO;            
+      myNodeAccepted =  (myNode && links && links[0]) ? myNode.canLink( links[0] ) : NO;
+      otherNodeAccepted = (otherNode && myNodeAccepted && links[1]) ? otherNode.canLink( links[1] ) : NO;
+    }
+    if (otherTerminal && otherTerminal.get('isCanvas')) {
+    	return otherTerminal.get('acceptCanvasDrop');
     }
     return (myNodeAccepted && otherNodeAccepted);
   },

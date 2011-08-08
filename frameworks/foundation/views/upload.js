@@ -1,6 +1,7 @@
 // ========================================================================
 // SCUI.UploadView
 // ========================================================================
+/*globals SCUI FormData*/
 
 /** @class
 
@@ -80,8 +81,7 @@ SCUI.UploadView = SC.View.extend(
       this._firstTime = YES;
       
       if (cssImageClass) {
-                
-        context .begin('form')
+        context.begin('form')
                   .attr('method', 'post')
                   .attr('enctype', 'multipart/form-data')
                   .attr('action', uploadTarget)
@@ -96,13 +96,7 @@ SCUI.UploadView = SC.View.extend(
                     .begin('input')
                       .attr('type', 'file')
                       .attr('name', inputName)
-                      .styles({ 'position': 'relative',
-                                'height': '100%',
-                                'width': 'auto',
-                                'opacity': '0',
-                                '-moz-opacity': '0',
-                                'filter': 'progid:DXImageTransform.Microsoft.Alpha(opacity=0)' })
-        
+                      .setClass('hidden-upload-input', YES)
                     .end()
                   .end()
                 .end()
@@ -147,30 +141,9 @@ SCUI.UploadView = SC.View.extend(
     sc_super();
   },
   
-  mouseMoved: function(evt) {
+  mouseDown: function(evt) {
     if (evt.target.nodeName === 'LABEL') {
-      var ox = 0;
-      var oy = 0;
-      var elem = evt.target;
-      
-      if (elem.offsetParent) {
-        ox = elem.offsetLeft;
-        oy = elem.offsetTop;
-        
-        while (elem = elem.offsetParent) {
-          ox += elem.offsetLeft;
-          oy += elem.offsetTop;
-        }
-      }
-  
-      var x = evt.pageX - ox;
-      var y = evt.pageY - oy;
-      var w = evt.target.file.offsetWidth;
-      var h = evt.target.file.offsetHeight;
-      
-      var input = this.$('input').firstObject();
-      input.style.top   = y - (h / 2)  + 'px';
-      input.style.left  = x - (w - 30) + 'px';
+      this.$('input')[0].click();
     }
   },
   
@@ -253,6 +226,7 @@ SCUI.UploadView = SC.View.extend(
   */
   clearFileUpload: function() {
     var f = this._getForm();
+    this.set('value', null);
     if (f) {
       
       // remove event before calling f.innerHTML = f.innerHTML
@@ -284,6 +258,7 @@ SCUI.UploadView = SC.View.extend(
   },
 
   _uploadCheck: function(response) {
+    this.set('fullServerResponse', response);
     this.set('serverResponse', response.get('body'));
     this._uploadDone();
   },
