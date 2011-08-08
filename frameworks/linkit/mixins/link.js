@@ -388,28 +388,29 @@ LinkIt.Link = {
     }
 
     // X coordinate of arrow tip
-    var tipX = endx + len * Math.cos(theta);
+    var tipX = endx; // + len * Math.cos(theta);
     // Y coordinate of arrow tip
-    var tipY = endy + len * Math.sin(theta);
+    var tipY = endy; // + len * Math.sin(theta);
 
     // Angles to "tail" tips
     var baseAngleA = theta + angle * Math.PI/180;
     var baseAngleB = theta - angle * Math.PI/180;
 
     // Coordinates of "tail" tips
-    var baseAX = endx - len * Math.cos(baseAngleA);
-    var baseAY = endy - len * Math.sin(baseAngleA);
-    var baseBX = endx - len * Math.cos(baseAngleB);
-    var baseBY = endy - len * Math.sin(baseAngleB);
+    var baseAX = endx - (2 * len * Math.cos(baseAngleA));
+    var baseAY = endy - (2 * len * Math.sin(baseAngleA));
+    var baseBX = endx - (2 * len * Math.cos(baseAngleB));
+    var baseBY = endy - (2 * len * Math.sin(baseAngleB));
 
     // Draw the arrow
     context.save();
     context.beginPath();
     context.moveTo(tipX, tipY);
     context.lineTo(baseAX, baseAY);
-    context.moveTo(tipX, tipY);
     context.lineTo(baseBX, baseBY);
+    context.lineTo(tipX, tipY);
     context.stroke();
+    context.fill();
     context.restore();
   },
 
