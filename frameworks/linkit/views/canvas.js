@@ -380,9 +380,8 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   },
 
   mouseUp: function(evt) {
-    var ret = sc_super();
     var layout, content, newPosition, action;
-    
+    var ret;
     if (this._dragData && this._dragData.didMove) {
       var self = this;
       this._dragData.selectedViews.forEach(function(viewMap){
@@ -394,19 +393,19 @@ LinkIt.CanvasView = SC.CollectionView.extend({
           self._setItemPosition(content, newPosition);
         }
       });
-      
+      ret = true;
     }
+    else {
+      ret = sc_super();
+      this._dragData = null; // clean up
 
-    this._dragData = null; // clean up
-
-    if (evt && (evt.which === 3) || (evt.ctrlKey && evt.which === 1)) {
-      action = this.get('contextMenuAction');
-
-      if (action) {
-        this.getPath('pane.rootResponder').sendAction(action, this.get('contextMenuTarget'), this, this.get('pane'), evt);
+      if (evt && (evt.which === 3) || (evt.ctrlKey && evt.which === 1)) {
+        action = this.get('contextMenuAction');
+        if (action) {
+          this.getPath('pane.rootResponder').sendAction(action, this.get('contextMenuTarget'), this, this.get('pane'), evt);
+        }
       }
-    }
-    
+    } 
     return ret;
   },
 
