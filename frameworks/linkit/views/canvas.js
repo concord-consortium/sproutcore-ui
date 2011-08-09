@@ -227,8 +227,8 @@ LinkIt.CanvasView = SC.CollectionView.extend({
   */
   deleteSelection: function() {
     if (this.get('isEditable')) {
-      sc_super();
       this.deleteLinkSelection();
+      sc_super();
     }
 
     // Always return YES since this becomes the return value of the keyDown() method
