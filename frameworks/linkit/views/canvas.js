@@ -471,6 +471,9 @@ LinkIt.CanvasView = SC.CollectionView.extend({
         var selectedID = LinkIt.genLinkID(linkSelection);
         links.forEach( function (link) {
           if ((LinkIt.genLinkID(link) === selectedID) && (thisCanvas.get('selectedLinks').indexOf(link) < 0)) {
+            // if we have changed our links (added/deleted) and we have at least one selected,
+            // unselect nodes so the new link is the only thing selected
+            thisCanvas.deselectAll();
             // if this was previously selected and isn't already in the array, we need to reselect it
             thisCanvas.set('linkSelection', link);
             link.set('isSelected', YES);
